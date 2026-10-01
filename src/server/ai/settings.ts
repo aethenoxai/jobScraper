@@ -35,6 +35,15 @@ export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string 
   'openai-compatible': { fast: null, quality: null },
 };
 
+/** Models offered in setup and settings (the user can also type another one). Empty: type the model's name. */
+export const MODEL_CHOICES: Record<Exclude<AiProvider, 'none'>, string[]> = {
+  openai: ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'],
+  anthropic: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-4-5-20251001'],
+  google: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+  ollama: [],
+  'openai-compatible': [],
+};
+
 /** Env var holding each provider's API key. Keys live only in .env (PRD §37). */
 export const KEY_ENV_VAR: Partial<Record<AiProvider, string>> = {
   openai: 'OPENAI_API_KEY',
