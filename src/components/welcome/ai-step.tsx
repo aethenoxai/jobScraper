@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { connectAiStep, disconnectChatGptStep, type StepResult } from '@/app/welcome/actions';
+import { connectAiStep, disconnectChatGptStep, signOutClaudeCodeStep, type StepResult } from '@/app/welcome/actions';
+import { ClaudeCodeAccount, type ClaudeCodeInfo } from '@/components/claude-code-account';
 import { btn, btnPrimary, Card, input, Notice } from '@/components/ui';
 import { DEFAULT_MODELS, KEY_ENV_VAR, MODEL_CHOICES, PROVIDER_LABELS, type AiProvider, type AiSettings } from '@/server/ai/settings';
 
@@ -20,11 +21,6 @@ const PROVIDERS: Array<{ id: Provider; hint: string; keyUrl?: string }> = [
 const modelsFor = (p: Provider, initial: AiSettings) =>
   p === initial.provider ? { fast: initial.fastModel ?? DEFAULT_MODELS[p].fast ?? '', quality: initial.qualityModel ?? DEFAULT_MODELS[p].quality ?? '' } : { fast: DEFAULT_MODELS[p].fast ?? '', quality: DEFAULT_MODELS[p].quality ?? '' };
 
-export interface ClaudeCodeInfo {
-  installed: boolean;
-  loggedIn: boolean;
-  message: string;
-}
 
 /** Step 1: choose the AI that reads the CV and matches jobs; it is tested before going on. */
 export function AiStep({
@@ -131,12 +127,7 @@ export function AiStep({
             {inDocker || !claudeCode ? (
               <p>Claude Code can’t be used from Docker. Use the native install, or another provider.</p>
             ) : (
-              <>
-                <p className={claudeCode.loggedIn ? 'text-green-700 dark:text-green-400' : ''}>{claudeCode.message}</p>
-                {!claudeCode.loggedIn && (
-                  <button type="button" className={btn} onClick={() => router.refresh()}>Check again</button>
-                )}
-              </>
+              <ClaudeCodeAccount status={claudeCode} signOut={signOutClaudeCodeStep} />
             )}
             <p className="text-xs text-neutral-500">
               Job Scraper runs your own Claude Code (<code>claude -p</code>) and never sees your Claude password or tokens. Calls count against your Claude plan’s limits, and Job Scraper stops after a daily number of calls. Anthropic sets the terms for using Claude Code from other tools and may change them.

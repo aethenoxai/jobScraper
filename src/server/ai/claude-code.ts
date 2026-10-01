@@ -14,7 +14,10 @@ import { scrubSecrets } from '../logging';
 export interface ClaudeCodeStatus {
   installed: boolean;
   loggedIn: boolean;
-  /** What to tell the user (never their account e-mail or organisation). */
+  /** The signed-in account, shown to the user so they know which plan is used (never logged). */
+  email: string | null;
+  plan: string | null;
+  /** What to tell the user. */
   message: string;
 }
 
@@ -113,17 +116,33 @@ export async function claudeCodeObject<T>(req: { bin: string; model: string; sys
 }
 
 const NOT_INSTALLED = 'Claude Code isn’t installed on this computer. Install it (https://claude.com/claude-code), sign in with `claude auth login` in a terminal, then check again.';
+const SIGNED_OUT = 'Claude Code is installed but not signed in. Run `claude auth login` in a terminal, sign in with the account you want, then check again.';
 
-/** Whether the user's Claude Code is installed and signed in (`claude auth status`). */
+/** Whether the user's Claude Code is installed and signed in, and with which account (`claude auth status`). */
 export async function claudeCodeStatus(opts: { bin?: string | null; env?: Record<string, string> } = {}): Promise<ClaudeCodeStatus> {
   const bin = opts.bin === undefined ? findClaudeCode() : opts.bin;
-  if (!bin) return { installed: false, loggedIn: false, message: NOT_INSTALLED };
+  if (!bin) return { installed: false, loggedIn: false, email: null, plan: null, message: NOT_INSTALLED };
   try {
     const out = await run(bin, ['auth', 'status', '--json'], { timeoutMs: 15_000, env: opts.env });
-    const s = z.object({ loggedIn: z.boolean(), subscriptionType: z.string().nullish() }).safeParse(JSON.parse(out.stdout));
-    if (s.success && s.data.loggedIn) return { installed: true, loggedIn: true, message: `Claude Code is signed in${s.data.subscriptionType ? ` (${s.data.subscriptionType} plan)` : ''}.` };
+    const s = z.object({ loggedIn: z.boolean(), email: z.string().nullish(), subscriptionType: z.string().nullish() }).safeParse(JSON.parse(out.stdout));
+    if (s.success && s.data.loggedIn) {
+      const email = s.data.email ?? null;
+      const plan = s.data.subscriptionType ?? null;
+      return { installed: true, loggedIn: true, email, plan, message: `Claude Code is signed in${email ? ` as ${email}` : ''}${plan ? ` (${plan} plan)` : ''}.` };
+    }
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { installed: false, loggedIn: false, message: NOT_INSTALLED };
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { installed: false, loggedIn: false, email: null, plan: null, message: NOT_INSTALLED };
   }
-  return { installed: true, loggedIn: false, message: 'Claude Code is installed but not signed in. Run `claude auth login` in a terminal, then check again.' };
+  return { installed: true, loggedIn: false, email: null, plan: null, message: SIGNED_OUT };
+}
+
+/**
+ * Signs Claude Code out with its own `claude auth logout`. This is the user's Claude Code: it signs out everywhere
+ * on this computer (terminal and editor too), which the UI says before asking. Returns the status afterwards.
+ */
+export async function claudeCodeSignOut(opts: { bin?: string | null; env?: Record<string, string> } = {}): Promise<ClaudeCodeStatus> {
+  const bin = opts.bin === undefined ? findClaudeCode() : opts.bin;
+  if (!bin) return { installed: false, loggedIn: false, email: null, plan: null, message: NOT_INSTALLED };
+  await run(bin, ['auth', 'logout'], { timeoutMs: 15_000, env: opts.env });
+  return claudeCodeStatus({ bin, env: opts.env });
 }

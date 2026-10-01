@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS, mergeAiSettings, type AiSettings } from '@/server/ai';
 import { disconnectChatGpt } from '@/server/ai/chatgpt-auth';
+import { claudeCodeSignOut } from '@/server/ai/claude-code';
 import { testAiSettings } from '@/server/ai/connect';
 import { liveEnv } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
@@ -41,5 +42,10 @@ export async function testAiConnection(formData: FormData): Promise<AiActionResu
 
 export async function disconnectChatGptAction(): Promise<void> {
   disconnectChatGpt(getAppContext().settings);
+  revalidatePath('/settings/ai');
+}
+
+export async function signOutClaudeCodeAction(): Promise<void> {
+  await claudeCodeSignOut();
   revalidatePath('/settings/ai');
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { disconnectChatGpt } from '@/server/ai/chatgpt-auth';
+import { claudeCodeSignOut } from '@/server/ai/claude-code';
 import { connectAi } from '@/server/ai/connect';
 import { liveEnv, shellDefines, writeEnvValue } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
@@ -43,6 +44,12 @@ export async function connectAiStep(form: FormData): Promise<StepResult> {
 /** Step 1: forget the ChatGPT sign-in. */
 export async function disconnectChatGptStep(): Promise<void> {
   disconnectChatGpt(getAppContext().settings);
+  revalidatePath('/welcome');
+}
+
+/** Step 1: sign the user's Claude Code out (they confirmed it signs out everywhere on this computer). */
+export async function signOutClaudeCodeStep(): Promise<void> {
+  await claudeCodeSignOut();
   revalidatePath('/welcome');
 }
 

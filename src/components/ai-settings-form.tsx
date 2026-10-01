@@ -1,11 +1,12 @@
 'use client';
 
 import { useActionState, useRef, useState, useTransition } from 'react';
-import { disconnectChatGptAction, saveAiSettings, testAiConnection, type AiActionResult } from '@/app/(app)/settings/ai/actions';
+import { disconnectChatGptAction, saveAiSettings, signOutClaudeCodeAction, testAiConnection, type AiActionResult } from '@/app/(app)/settings/ai/actions';
+import { ClaudeCodeAccount, type ClaudeCodeInfo } from '@/components/claude-code-account';
 import { btn, btnPrimary, input } from '@/components/ui';
 import { AI_PROVIDERS, DEFAULT_MODELS, PROVIDER_LABELS, SUBSCRIPTION_PROVIDERS, type AiSettings } from '@/server/ai/settings';
 
-export function AiSettingsForm({ initial, chatgpt, claudeCode }: { initial: AiSettings; chatgpt: { email: string | null; needsReconnect: boolean } | null; claudeCode: { loggedIn: boolean; message: string } | null }) {
+export function AiSettingsForm({ initial, chatgpt, claudeCode }: { initial: AiSettings; chatgpt: { email: string | null; needsReconnect: boolean } | null; claudeCode: ClaudeCodeInfo | null }) {
   const [provider, setProvider] = useState(initial.provider);
   const [state, action, pending] = useActionState(saveAiSettings, null);
   const [test, setTest] = useState<AiActionResult | null>(null);
@@ -65,7 +66,11 @@ export function AiSettingsForm({ initial, chatgpt, claudeCode }: { initial: AiSe
                 )}
               </p>
             )}
-            {provider === 'claude-code' && <p className="text-sm sm:col-span-2" data-testid="claude-code-status">{claudeCode?.message ?? 'Claude Code can’t be used from Docker.'}</p>}
+            {provider === 'claude-code' && (
+              <div className="text-sm sm:col-span-2" data-testid="claude-code-status">
+                {claudeCode ? <ClaudeCodeAccount status={claudeCode} signOut={signOutClaudeCodeAction} /> : 'Claude Code can’t be used from Docker.'}
+              </div>
+            )}
             {subscription ? (
               <label className="flex flex-col gap-1 text-sm">
                 AI calls per day through your plan (empty = no limit)

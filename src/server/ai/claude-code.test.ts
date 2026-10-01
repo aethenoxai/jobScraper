@@ -1,9 +1,9 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { childEnv, claudeCodeObject, claudeCodeStatus, findClaudeCode } from './claude-code';
+import { childEnv, claudeCodeObject, claudeCodeSignOut, claudeCodeStatus, findClaudeCode } from './claude-code';
 
 let dir: string;
 beforeEach(() => (dir = mkdtempSync(path.join(tmpdir(), 'job-scraper-claude-'))));
@@ -25,8 +25,13 @@ process.stdin.on('end', () => {
   fs.writeFileSync(${JSON.stringify(path.join(dir, 'call.json'))}, JSON.stringify({ args: process.argv.slice(2), input, env: process.env }));
   const mode = ${JSON.stringify(mode)};
   ${extra}
+  if (process.argv[2] === 'auth' && process.argv[3] === 'logout') {
+    fs.writeFileSync(${JSON.stringify(path.join(dir, 'signed-out'))}, '1');
+    console.log('Successfully logged out from your Anthropic account.');
+    return;
+  }
   if (process.argv[2] === 'auth') {
-    if (mode === 'logged-out') { console.log(JSON.stringify({ loggedIn: false })); process.exit(1); }
+    if (mode === 'logged-out' || fs.existsSync(${JSON.stringify(path.join(dir, 'signed-out'))})) { console.log(JSON.stringify({ loggedIn: false })); process.exit(1); }
     console.log(JSON.stringify({ loggedIn: true, authMethod: 'claude.ai', email: 'someone@example.com', orgName: 'Secret Org', subscriptionType: 'max' }));
     return;
   }
@@ -88,11 +93,19 @@ describe('Claude through the user’s own Claude Code', () => {
     expect(env).toEqual({ PATH: '/bin', HOME: '/home/me' });
   });
 
-  it('status: installed and signed in (plan named, never the account e-mail or organisation)', async () => {
+  it('status: installed and signed in, with the account and plan (shown to the user, never logged)', async () => {
     const s = await claudeCodeStatus({ bin: fakeClaude('ok') });
-    expect(s).toMatchObject({ installed: true, loggedIn: true });
-    expect(s.message).toMatch(/max plan/i);
-    expect(s.message).not.toMatch(/someone@example.com|Secret Org/);
+    expect(s).toMatchObject({ installed: true, loggedIn: true, email: 'someone@example.com', plan: 'max' });
+    expect(s.message).toBe('Claude Code is signed in as someone@example.com (max plan).');
+    expect(s.message).not.toMatch(/Secret Org/);
+  });
+
+  it('signing out runs Claude Code’s own logout, and the status then says it is signed out', async () => {
+    const bin = fakeClaude('ok');
+    const after = await claudeCodeSignOut({ bin });
+    expect(existsSync(path.join(dir, 'signed-out'))).toBe(true); // written only by `claude auth logout`
+    expect(after).toMatchObject({ installed: true, loggedIn: false, email: null });
+    expect(after.message).toMatch(/claude auth login/);
   });
 
   it('status: signed out, or not installed, with what to do', async () => {
