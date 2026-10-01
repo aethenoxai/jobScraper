@@ -39,9 +39,30 @@ export async function beginCvUpload(c: OnboardingContext, file: { name: string; 
   const profile = c.profiles.create('Main profile');
   // An older install may have an unfinished profile: the dashboard and feed should open on this one.
   c.profiles.setDefault(profile.id);
-  updateOnboarding(c.settings, (s) => ({ ...s, profileId: profile.id, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null }));
+  updateOnboarding(c.settings, (s) => ({ ...s, profileId: profile.id, cvAcceptedAt: null, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null }));
   await c.cvs.upload(profile.id, file.name, file.buf);
   return { profileId: profile.id };
+}
+
+/** Continue after the CV was read. */
+export function acceptCv(c: OnboardingContext): void {
+  const { profile, cv } = onboardingStatus(c);
+  if (!profile || !cv || cv.status !== 'applied') throw new Error('Upload your CV first; it is read before you can go on.');
+  updateOnboarding(c.settings, (s) => ({ ...s, cvAcceptedAt: nowMs(c) }));
+}
+
+/** Remove: the CV and the draft profile made from it go (also while it is being read); setup starts the CV step again. */
+export async function removeCv(c: OnboardingContext): Promise<void> {
+  if (isOnboarded(c)) throw new Error('Setup is already finished: manage CVs on the Profiles page.');
+  const id = readOnboarding(c.settings)?.profileId;
+  if (id != null && c.profiles.get(id)) await c.profiles.delete(id);
+  updateOnboarding(c.settings, (s) => ({ ...s, profileId: null, cvAcceptedAt: null, profileConfirmedAt: null, preferencesConfirmedAt: null }));
+}
+
+/** Try again: read the CV that failed once more. */
+export function retryCv(c: OnboardingContext): void {
+  const { cv } = onboardingStatus(c);
+  if (cv?.status === 'failed') c.cvs.retry(cv.id);
 }
 
 /** The user checked (and maybe edited) what was read from the CV. */

@@ -22,7 +22,7 @@ pnpm start          # the web UI and the background worker
 Open **http://127.0.0.1:3000**. A short setup opens first, one step at a time. Nothing is searched until you finish it:
 
 1. Choose the AI model: sign in with your ChatGPT plan, use the Claude Code on your computer, paste an API key (it is saved in your `.env`) or use a local Ollama server. It is tested before you go on.
-2. Upload your CV. It is read with that model.
+2. Drop in your CV (PDF, Word .docx or .doc). That model reads it; remove or replace the file any time.
 3. Check and correct your profile.
 4. Say which jobs you want: titles, country, state and city, remote or not, job type, expected salary (negotiable or not) and notice period.
 5. Start the job search. The dashboard opens.

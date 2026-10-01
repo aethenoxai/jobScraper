@@ -18,6 +18,8 @@ const OnboardingStateSchema = z.object({
   /** The profile created from the CV uploaded during onboarding. */
   profileId: z.number().int().nullable().default(null),
   aiVerifiedAt: At,
+  /** The user saw what was read from the CV and pressed Continue. */
+  cvAcceptedAt: At,
   profileConfirmedAt: At,
   preferencesConfirmedAt: At,
   /** When the user pressed "Start job search". */
@@ -25,7 +27,7 @@ const OnboardingStateSchema = z.object({
 });
 export type OnboardingState = z.infer<typeof OnboardingStateSchema>;
 
-const EMPTY: OnboardingState = { profileId: null, aiVerifiedAt: null, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null };
+const EMPTY: OnboardingState = { profileId: null, aiVerifiedAt: null, cvAcceptedAt: null, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null };
 
 /** The saved state, or null on an install that never started onboarding. */
 export function readOnboarding(settings: SettingsStore): OnboardingState | null {
@@ -61,7 +63,7 @@ export function recordEarlierSetup(deps: { settings: SettingsStore; profiles: Pi
   if (!setUpEarlier(profiles)) return false;
   const at = (deps.now ?? (() => new Date()))().getTime();
   const profile = profiles.find((p) => p.isDefault) ?? profiles[0];
-  updateOnboarding(deps.settings, () => ({ profileId: profile.id, aiVerifiedAt: at, profileConfirmedAt: at, preferencesConfirmedAt: at, completedAt: at }));
+  updateOnboarding(deps.settings, () => ({ profileId: profile.id, aiVerifiedAt: at, cvAcceptedAt: at, profileConfirmedAt: at, preferencesConfirmedAt: at, completedAt: at }));
   return true;
 }
 
@@ -78,14 +80,14 @@ export function onboardingStatus(deps: { settings: SettingsStore; profiles: Prof
   const saved = readOnboarding(deps.settings);
   const profile = saved?.profileId != null ? deps.profiles.get(saved.profileId) : null;
   // Confirmations belong to the onboarding profile: without it they no longer count.
-  const state: OnboardingState = saved ? (profile ? saved : { ...saved, profileId: null, profileConfirmedAt: null, preferencesConfirmedAt: null }) : EMPTY;
+  const state: OnboardingState = saved ? (profile ? saved : { ...saved, profileId: null, cvAcceptedAt: null, profileConfirmedAt: null, preferencesConfirmedAt: null }) : EMPTY;
   const cv = profile ? (deps.cvs.list(profile.id)[0] ?? null) : null;
   const status = (step: OnboardingStep): OnboardingStatus => ({ step, state, profile, cv });
 
   if (isOnboarded(deps)) return status('done');
   if (state.aiVerifiedAt === null || !deps.ai.status().configured) return status('ai');
   const reading = cv?.status === 'uploaded' || cv?.status === 'extracting';
-  if (!profile || reading || !(cv?.status === 'applied' || filled(profile))) return status('cv');
+  if (!profile || reading || !(cv?.status === 'applied' || filled(profile)) || state.cvAcceptedAt === null) return status('cv');
   if (state.profileConfirmedAt === null) return status('review');
   if (state.preferencesConfirmedAt === null) return status('preferences');
   return status('start');

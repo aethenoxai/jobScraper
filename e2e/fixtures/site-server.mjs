@@ -29,19 +29,30 @@ new SMTPServer({
  * A stand-in OpenAI-compatible model for the setup wizard's connection test: it answers the health check and
  * refuses everything else, so CV reading and matching fall back to the offline rules the rest of the suite expects.
  */
+/** A CV "read" by the fixture model: the name and headline from the first lines, nothing else (nothing invented). */
+function readCv(prompt) {
+  const [name = null, headline = null] = (prompt.split('"""')[1] ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const none = { email: null, phone: null, location: null, country: null, timezone: null, links: [] };
+  const app = { workAuthorization: null, visaStatus: null, noticePeriod: null, relocation: null, travel: null, currentlyEmployed: null, currentSalary: null, expectedSalary: null };
+  return { personal: { fullName: name, ...none }, headline, previousTitles: [], summary: null, industry: null, domain: null, yearsExperience: null, careerLevel: null, experience: [], education: [], certifications: [], skills: [], projects: [], languages: [], application: app };
+}
+
 async function fakeModel(req, res) {
   let body = '';
   for await (const chunk of req) body += chunk;
   const request = JSON.parse(body || '{}');
-  const healthCheck = JSON.stringify(request.messages ?? []).includes('health check');
-  if (!healthCheck) return res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'The fixture model only answers health checks.' } }));
+  const said = JSON.stringify(request.messages ?? []);
+  let answer;
+  if (said.includes('health check')) answer = { ok: true };
+  else if (said.includes('CV text:')) answer = readCv(JSON.parse(said).map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n'));
+  else return res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'The fixture model only answers health checks and CV reading.' } }));
   res.writeHead(200, { 'content-type': 'application/json' }).end(
     JSON.stringify({
       id: 'chatcmpl-fixture',
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
       model: request.model,
-      choices: [{ index: 0, message: { role: 'assistant', content: '{"ok":true}' }, finish_reason: 'stop' }],
+      choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify(answer) }, finish_reason: 'stop' }],
       usage: { prompt_tokens: 20, completion_tokens: 5, total_tokens: 25 },
     }),
   );

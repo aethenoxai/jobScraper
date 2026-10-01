@@ -32,13 +32,25 @@ test('a fresh install shows only the setup wizard, one step at a time, until the
   await page.getByRole('button', { name: 'Test and continue' }).click();
   await expect(step).toHaveText('Step 2 of 5');
 
-  // 2. CV: uploaded, then read in the background while the page waits.
-  await page.getByLabel(/Your CV/).setInputFiles('tests/fixtures/cvs/files/software-engineer-india.pdf');
-  await page.getByRole('button', { name: 'Upload and read' }).click();
-  await expect(step).toHaveText('Step 3 of 5', { timeout: 45_000 });
+  // 2. CV: dropped or chosen, uploaded at once and read by the chosen model; it can be removed and replaced.
+  const cv = page.getByLabel('Your CV (PDF or Word)');
+  await cv.setInputFiles('tests/fixtures/cvs/files/nurse-uk.docx');
+  await expect(page.getByTestId('cv-file')).toContainText('nurse-uk.docx');
+  await expect(page.getByTestId('cv-read')).toBeVisible({ timeout: 45_000 });
+  await page.getByRole('button', { name: 'Remove' }).click();
+  await expect(page.getByTestId('cv-drop')).toBeVisible();
+  await page.getByLabel('Your CV (PDF or Word)').setInputFiles({ name: 'cv.txt', mimeType: 'text/plain', buffer: Buffer.from('not a cv') });
+  await expect(page.getByRole('alert').filter({ hasText: /isn.t a PDF or Word file/ })).toBeVisible();
+  await page.getByLabel('Your CV (PDF or Word)').setInputFiles('tests/fixtures/cvs/files/software-engineer-india.pdf');
+  await expect(page.getByTestId('cv-read')).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByTestId('cv-file')).toContainText('software-engineer-india.pdf');
+  await expect(step).toHaveText('Step 2 of 5');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(step).toHaveText('Step 3 of 5');
 
-  // 3. Profile: what was read, to check. (The fixture model only answers health checks: read offline, and said so.)
-  await expect(page.getByText(/read with simple rules/)).toBeVisible();
+  // 3. Profile: what the model read, to check; the file it came from can still be changed.
+  await expect(page.getByText(/From software-engineer-india\.pdf/)).toBeVisible();
+  await expect(page.getByLabel('Full name')).toHaveValue('Asha Rao');
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(step).toHaveText('Step 4 of 5');
 

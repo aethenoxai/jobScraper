@@ -8,6 +8,9 @@
 - Two ways to use an AI plan instead of an API key: **Sign in with ChatGPT** (OpenAI's program for open-source local apps) and **Claude through your own Claude Code** (`claude -p`, signed in with your account). Plans have a daily number of AI calls instead of a dollar budget.
 - The jobs step asks for country, state and city (Indian states are now recognised, and cities know their state), remote jobs, work mode, job type, expected salary (CTC) with a *negotiable* switch, notice period and match level.
 
+- The CV step: drop or choose the file and it uploads at once; **Remove** and **Replace** at any time (also while it is read); **Try again** when it couldn't be read; **Continue** once you've seen what was found. Old Word **.doc** files work as well as PDF and .docx.
+- The AI model reads the CV itself: a PDF goes to providers that take documents (OpenAI, Anthropic, Google, ChatGPT sign-in) as the file, Word files as their text. When the AI can't read it, setup says why instead of falling back to fixed rules.
+
 ### Updating
 - The *System* page shows the installed version, with links to the latest release and the update steps (the app itself never contacts GitHub). The README explains how to update a clone.
 

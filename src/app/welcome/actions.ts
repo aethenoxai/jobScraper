@@ -8,7 +8,7 @@ import { connectAi } from '@/server/ai/connect';
 import { liveEnv, shellDefines, writeEnvValue } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 import { isNamedError } from '@/lib/format';
-import { beginCvUpload, confirmProfile, saveJobPreferences, startJobSearch, type JobPreferencesInput, type SavePreferencesResult } from '@/server/onboarding-steps';
+import { acceptCv, beginCvUpload, confirmProfile, removeCv, retryCv, saveJobPreferences, startJobSearch, type JobPreferencesInput, type SavePreferencesResult } from '@/server/onboarding-steps';
 
 export interface StepResult {
   ok: boolean;
@@ -66,6 +66,25 @@ export async function uploadCvStep(_prev: StepResult | null, form: FormData): Pr
   }
   revalidatePath('/welcome');
   redirect('/welcome');
+}
+
+/** Step 2: Continue once the CV is read. */
+export async function acceptCvStep(): Promise<void> {
+  acceptCv(getAppContext());
+  revalidatePath('/welcome');
+  redirect('/welcome');
+}
+
+/** Step 2: Remove the CV (and the draft profile made from it). */
+export async function removeCvStep(): Promise<void> {
+  await removeCv(getAppContext());
+  revalidatePath('/welcome');
+}
+
+/** Step 2: Try again after a CV couldn't be read. */
+export async function retryCvStep(): Promise<void> {
+  retryCv(getAppContext());
+  revalidatePath('/welcome');
 }
 
 /** Step 3: the profile is right (the editor saved it just before). */

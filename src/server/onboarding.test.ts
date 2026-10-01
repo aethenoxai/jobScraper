@@ -87,10 +87,12 @@ describe('onboarding: one step at a time, worked out from what is saved', () => 
     expect(onboardingStatus(d)).toMatchObject({ step: 'cv', cv: { id: bad.id, status: 'failed' } });
   });
 
-  it('goes review → preferences → start → done as each is confirmed', async () => {
+  it('stays on the CV step once it is read until Continue, then goes review → preferences → start → done', async () => {
     const d = deps();
     connectAi(d);
     await profileWithCv(d);
+    expect(onboardingStatus(d)).toMatchObject({ step: 'cv', cv: { status: 'applied' } });
+    updateOnboarding(d.settings, (s) => ({ ...s, cvAcceptedAt: 1 }));
     expect(onboardingStatus(d).step).toBe('review');
     updateOnboarding(d.settings, (s) => ({ ...s, profileConfirmedAt: 2 }));
     expect(onboardingStatus(d).step).toBe('preferences');
@@ -137,7 +139,7 @@ describe('onboarding: one step at a time, worked out from what is saved', () => 
     const d = deps();
     updateOnboarding(d.settings, (s) => ({ ...s, aiVerifiedAt: 5 }));
     expect(t.sqlite.prepare('select key from settings where key = ?').get(ONBOARDING_KEY)).toBeTruthy();
-    expect(readOnboarding(d.settings)).toEqual({ profileId: null, aiVerifiedAt: 5, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null });
+    expect(readOnboarding(d.settings)).toEqual({ profileId: null, aiVerifiedAt: 5, cvAcceptedAt: null, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null });
   });
 
   it('an older install counted as set up stays set up after its target titles are cleared (saved once, at start)', () => {

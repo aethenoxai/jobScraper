@@ -7,7 +7,7 @@ import { AI_SETTINGS_KEY } from './ai/settings';
 import { createLogger } from './logging';
 import { RESCORE_TASK } from './matching/tasks';
 import { onboardingStatus, readOnboarding, updateOnboarding } from './onboarding';
-import { beginCvUpload, confirmProfile, cvWaitNotice, saveJobPreferences, startJobSearch, suggestedPreferences, type JobPreferencesInput } from './onboarding-steps';
+import { acceptCv, beginCvUpload, confirmProfile, cvWaitNotice, removeCv, retryCv, saveJobPreferences, startJobSearch, suggestedPreferences, type JobPreferencesInput } from './onboarding-steps';
 import { createCvService } from './profile/cv-service';
 import { createProfileService } from './profile/service';
 import { createQueue } from './queue';
@@ -36,9 +36,17 @@ function ctx() {
 }
 type Ctx = ReturnType<typeof ctx>;
 
-async function uploadAndRead(c: Ctx, file = 'software-engineer-india.pdf') {
+/** Uploads a CV and runs the read (as the worker would). */
+async function upload(c: Ctx, file = 'software-engineer-india.pdf') {
   const { profileId } = await beginCvUpload(c, { name: file, buf: fixture(file) });
-  for (const cv of c.cvs.list(profileId)) if (cv.status === 'uploaded') await c.cvs.runExtraction(cv.id);
+  for (const cv of c.cvs.list(profileId)) if (cv.status === 'uploaded') await c.cvs.runExtraction(cv.id).catch(() => undefined);
+  return profileId;
+}
+
+/** …and presses Continue. */
+async function uploadAndRead(c: Ctx, file = 'software-engineer-india.pdf') {
+  const profileId = await upload(c, file);
+  acceptCv(c);
   return profileId;
 }
 
@@ -197,5 +205,37 @@ describe('setup steps', () => {
     expect(cvWaitNotice({ workerOnline: true, cv: reading, now: new Date(at.getTime() + 60_000) })).toBeNull();
     expect(cvWaitNotice({ workerOnline: true, cv: reading, now: new Date(at.getTime() + 4 * 60_000) })).toMatch(/longer than usual/i);
     expect(cvWaitNotice({ workerOnline: true, cv: { status: 'applied', uploadedAt: at }, now: new Date(at.getTime() + 9 * 60_000) })).toBeNull();
+  });
+
+  it('after the CV is read, setup waits on the CV step for Continue (which needs a read CV)', async () => {
+    const c = ctx();
+    expect(() => acceptCv(c)).toThrow(/upload your cv/i);
+    await upload(c, 'software-engineer-india.doc');
+    expect(onboardingStatus(c)).toMatchObject({ step: 'cv', cv: { status: 'applied', originalName: 'software-engineer-india.doc' } });
+    acceptCv(c);
+    expect(onboardingStatus(c).step).toBe('review');
+  });
+
+  it('Remove deletes the CV and the draft profile made from it, while reading or after, and setup starts the CV step again', async () => {
+    const c = ctx();
+    const { profileId } = await beginCvUpload(c, { name: 'cv.docx', buf: fixture('nurse-uk.docx') });
+    await removeCv(c);
+    expect(c.profiles.get(profileId)).toBeNull();
+    expect(onboardingStatus(c)).toMatchObject({ step: 'cv', profile: null, cv: null });
+    const again = await uploadAndRead(c);
+    confirmProfile(c);
+    await removeCv(c);
+    expect(c.profiles.list()).toHaveLength(0);
+    expect(readOnboarding(c.settings)).toMatchObject({ profileId: null, cvAcceptedAt: null, profileConfirmedAt: null });
+    expect(again).toBeGreaterThan(profileId);
+  });
+
+  it('Try again reads a CV that failed once more', async () => {
+    const c = ctx();
+    const id = await upload(c, 'image-only.pdf');
+    const [cv] = c.cvs.list(id);
+    expect(cv.status).toBe('failed');
+    retryCv(c);
+    expect(c.cvs.get(cv.id)).toMatchObject({ status: 'uploaded', error: null });
   });
 });

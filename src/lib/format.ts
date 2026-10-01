@@ -49,3 +49,6 @@ export function requestTime(): number {
 export function isNamedError(err: unknown, ...names: string[]): err is Error {
   return err instanceof Error && names.includes(err.name);
 }
+
+/** CV files the pickers accept (the server checks the content again): PDF, Word .docx and old .doc. */
+export const CV_ACCEPT = '.pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword';

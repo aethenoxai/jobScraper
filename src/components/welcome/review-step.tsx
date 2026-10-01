@@ -5,7 +5,7 @@ import { Card, Notice } from '@/components/ui';
 import type { ProfileData } from '@/server/profile/model';
 
 /** Step 3: what was read from the CV, to check and correct before anything is matched against it. */
-export function ReviewStep({ profileId, data, missing, readWithoutAi }: { profileId: number; data: ProfileData; missing: number; readWithoutAi: boolean }) {
+export function ReviewStep({ profileId, data, missing, readWithoutAi, cvName }: { profileId: number; data: ProfileData; missing: number; readWithoutAi: boolean; cvName: string | null }) {
   return (
     <Card title="3. Check your profile">
       <div className="mb-4 space-y-2">
@@ -13,7 +13,8 @@ export function ReviewStep({ profileId, data, missing, readWithoutAi }: { profil
         {readWithoutAi && <Notice tone="amber">The AI couldn’t read this CV, so it was read with simple rules. Please check every field.</Notice>}
         {missing > 0 && <Notice tone="amber">{missing} important field{missing > 1 ? 's are' : ' is'} empty (highlighted). Fill {missing > 1 ? 'them' : 'it'} in if you can; nothing is ever guessed.</Notice>}
         <p className="text-xs text-neutral-500">
-          <Link href="/welcome?step=cv" className="underline">← Upload a different CV</Link>
+          {cvName ? <>From {cvName} · </> : null}
+          <Link href="/welcome?step=cv" className="underline">Use a different file</Link>
         </p>
       </div>
       <ProfileEditor profileId={profileId} initial={data} submitLabel="Save and continue" afterSave={confirmProfileStep} />

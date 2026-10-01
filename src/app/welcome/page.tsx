@@ -15,9 +15,14 @@ import { getAppContext } from '@/server/context';
 import { onboardingStatus } from '@/server/onboarding';
 import { cvWaitNotice, suggestedPreferences } from '@/server/onboarding-steps';
 import { getSystemStatus } from '@/server/status';
-import { formatExpectedSalary, missingFields } from '@/server/profile/model';
+import { plural } from '@/lib/format';
+import { formatExpectedSalary, missingFields, type ProfileData } from '@/server/profile/model';
 
 export const metadata: Metadata = { title: 'Set up Job Scraper' };
+
+/** "3 jobs · 14 skills · 1 education entry": what the AI found in the CV. */
+const foundIn = (d: ProfileData) =>
+  [plural(d.experience.length, 'job'), plural(d.skills.length, 'skill'), plural(d.education.length, 'education entry', 'education entries')].join(' · ');
 
 export const dynamic = 'force-dynamic';
 
@@ -63,9 +68,9 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
       )}
       {step === 'cv' && (
         <CvStep
-          cv={status.cv && { name: status.cv.originalName, status: status.cv.status, error: status.cv.error }}
+          cv={status.cv && { name: status.cv.originalName, sizeBytes: status.cv.sizeBytes, status: status.cv.status, error: status.cv.error, uploadedAt: status.cv.uploadedAt.getTime() }}
           model={ai.models.fast}
-          replacing={current !== 'cv'}
+          found={status.cv?.status === 'applied' && status.profile ? foundIn(status.profile.data) : null}
         />
       )}
       {step === 'review' && status.profile && (
@@ -74,6 +79,7 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
           data={status.profile.data}
           missing={missingFields(status.profile.data).filter((f) => f !== 'application.expectedSalary' && f !== 'application.noticePeriod').length}
           readWithoutAi={status.cv?.extractionMethod === 'heuristic'}
+          cvName={status.cv?.originalName ?? null}
         />
       )}
       {step === 'preferences' && status.profile && <PreferencesStep initial={suggestedPreferences(status.profile)} />}
