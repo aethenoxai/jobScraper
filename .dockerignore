@@ -13,3 +13,8 @@ test-results
 playwright-report
 coverage
 *.log
+.scrapling
+.worktrees
+.claude
+**/__pycache__
+.pytest_cache

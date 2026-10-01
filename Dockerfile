@@ -24,6 +24,15 @@ RUN corepack enable \
   && pnpm exec playwright install --with-deps chromium \
   && rm -rf /var/lib/apt/lists/* \
   && chmod -R a+rX /corepack /ms-playwright
+# Scrapling (Python) reads job pages for web discovery and "Add by link", with its own Chromium build.
+COPY --from=build /app/python/requirements.txt /tmp/scrapling-requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends python3-venv \
+  && python3 -m venv /opt/scrapling \
+  && /opt/scrapling/bin/pip install --no-cache-dir -r /tmp/scrapling-requirements.txt \
+  && /opt/scrapling/bin/python -m playwright install --with-deps chromium \
+  && rm -rf /var/lib/apt/lists/* /tmp/scrapling-requirements.txt \
+  && chmod -R a+rX /opt/scrapling /ms-playwright
+ENV SCRAPLING_PYTHON=/opt/scrapling/bin/python
 COPY --from=build /app /app
 RUN mkdir -p /app/data && chown -R node:node /app/data /app/.next
 

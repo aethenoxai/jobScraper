@@ -25,6 +25,16 @@ jobs:
       - run: pnpm typecheck
       # Chromium first: browser, blocker and engine unit tests launch it too.
       - run: pnpm exec playwright install --with-deps chromium
+      # Scrapling reads job pages (web discovery, Add by link): its tests, the integration tests and E2E need it.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Scrapling
+        run: |
+          python -m venv .scrapling/venv
+          .scrapling/venv/bin/pip install -r python/requirements.txt pytest
+          .scrapling/venv/bin/python -m playwright install --with-deps chromium
+      - run: .scrapling/venv/bin/pytest -q python/tests
       - run: pnpm test
       - name: Quality gates (offline evals)
         run: |
