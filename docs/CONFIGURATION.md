@@ -3,7 +3,7 @@
 Job Scraper has two places for settings:
 
 - **In the app** (Settings in the sidebar): everything you change while using it, such as the AI provider and models, job sources, notifications, email sender, browser and tracking options, and how often to look for jobs. These are saved in the database.
-- **`.env`** (in the project folder): secrets and things needed before the app starts, such as API keys, passwords and the data folder. `pnpm run setup` creates it from `.env.example`. Restart Job Scraper after changing it.
+- **`.env`** (in the project folder): secrets and things needed before the app starts, such as API keys, passwords and the data folder. `pnpm run setup` creates it from `.env.example`. Restart Job Scraper after changing it (AI keys are the exception: they are picked up while it runs).
 
 Never commit `.env`. Values set in your shell take precedence over `.env`. Like Next.js, Job Scraper also reads `.env.local`, `.env.production` and `.env.production.local` (`.env.development…` under `pnpm dev`) if you create them; a value in a more specific file wins. The web page, the worker, `pnpm run setup`, the backup scripts and the evals all read them (the scripts use the production files unless `NODE_ENV` says otherwise).
 
@@ -21,7 +21,7 @@ Wrap a value that contains `#`, `$` or spaces in single quotes, for example `APP
 
 ## AI provider (optional)
 
-Choose the provider and models in **Settings → AI provider**. Only the key goes in `.env`.
+Choose the provider and models in the first setup step, later in **Settings → AI provider**. Only the key goes in `.env`: a key pasted during setup is written there for you (into the env file that already sets it, otherwise `.env`, readable only by you) and used without a restart. In Docker, put it in the `.env` next to `docker-compose.yml` and run `docker compose up -d`.
 
 | Variable | For |
 | --- | --- |
@@ -31,7 +31,12 @@ Choose the provider and models in **Settings → AI provider**. Only the key goe
 | `OPENAI_COMPATIBLE_API_KEY` | Any OpenAI-compatible server (set its base URL in the app; the key is optional, many local servers take none) |
 | `OLLAMA_BASE_URL` | Ollama, if not at `http://127.0.0.1:11434/api` (no key needed) |
 
-The AI page also sets a **daily spending limit**; AI work pauses for the day when it is reached. Without a provider, matching and tailoring use offline rules.
+Two choices need no key:
+
+- **ChatGPT (sign in with your plan):** *Sign in with ChatGPT* in setup or on the AI page. OpenAI lets open-source apps that run on your own computer use your ChatGPT Plus or Pro plan this way. It works only with Job Scraper opened at `http://127.0.0.1:<PORT>` (OpenAI sends you back to `/callback` there). The sign-in is kept in the database, like the Gmail and Outlook ones.
+- **Claude (through your Claude Code):** Job Scraper runs the [Claude Code](https://claude.com/claude-code) installed on this computer (`claude -p`), signed in with your own account (`claude auth login`). It never sees your Claude password or tokens. Not available in Docker. Anthropic sets the terms for using Claude Code from other tools and may change them.
+
+The AI page also sets a **daily spending limit**; AI work pauses for the day when it is reached. Plans have no per-call price, so for them it sets a **number of AI calls per day** instead (300 by default), so matching can't use up your plan. Without a provider, matching and tailoring use offline rules.
 
 ## Job sources
 

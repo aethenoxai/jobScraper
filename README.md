@@ -19,14 +19,15 @@ pnpm build
 pnpm start          # the web UI and the background worker
 ```
 
-Open **http://127.0.0.1:3000**. The *Get started* page walks you through the rest:
+Open **http://127.0.0.1:3000**. A short setup opens first, one step at a time. Nothing is searched until you finish it:
 
-1. Choose an AI provider, or "No AI".
-2. Upload your CV.
-3. Say what jobs you want.
-4. Pick where to look.
-5. Choose how you hear about matches.
-6. Start the job search.
+1. Choose the AI model: paste an API key (it is saved in your `.env`) or use a local Ollama server. It is tested before you go on.
+2. Upload your CV. It is read with that model.
+3. Check and correct your profile.
+4. Say which jobs you want: titles, country, state and city, remote or not, job type, expected salary (negotiable or not) and notice period.
+5. Start the job search. The dashboard opens.
+
+Job sources and notifications start with sensible defaults; change them any time in Settings.
 
 ### With Docker
 

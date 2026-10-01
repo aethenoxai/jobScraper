@@ -25,8 +25,31 @@ new SMTPServer({
   },
 }).listen(Number(process.env.FIXTURE_SMTP_PORT ?? 3198), '127.0.0.1');
 
+/**
+ * A stand-in OpenAI-compatible model for the setup wizard's connection test: it answers the health check and
+ * refuses everything else, so CV reading and matching fall back to the offline rules the rest of the suite expects.
+ */
+async function fakeModel(req, res) {
+  let body = '';
+  for await (const chunk of req) body += chunk;
+  const request = JSON.parse(body || '{}');
+  const healthCheck = JSON.stringify(request.messages ?? []).includes('health check');
+  if (!healthCheck) return res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'The fixture model only answers health checks.' } }));
+  res.writeHead(200, { 'content-type': 'application/json' }).end(
+    JSON.stringify({
+      id: 'chatcmpl-fixture',
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model: request.model,
+      choices: [{ index: 0, message: { role: 'assistant', content: '{"ok":true}' }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 20, completion_tokens: 5, total_tokens: 25 },
+    }),
+  );
+}
+
 createServer(async (req, res) => {
   if (req.url === '/__mail') return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(mails));
+  if (req.method === 'POST' && req.url === '/v1/chat/completions') return fakeModel(req, res);
   const file = path.join(root, path.normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^([/\\])+/, ''));
   if (!file.startsWith(root)) return res.writeHead(403).end();
   try {

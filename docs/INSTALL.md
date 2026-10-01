@@ -109,5 +109,5 @@ Stop Job Scraper and delete the project folder, including `data/` and `.env`. Wi
 | "Another Job Scraper worker is already running" | A worker is still running (in another terminal, or Docker). Stop that one first; after a crash, starting again just works. |
 | "This address is not allowed" | Open http://127.0.0.1:3000 (or `localhost`). Other host names need `APP_ALLOWED_HOSTS`. |
 | PDFs aren't created | Run `pnpm exec playwright install chromium` (Linux: `pnpm exec playwright install --with-deps chromium`). |
-| No jobs appear | Check *Get started*: a profile with target titles, at least one source on, discovery started. The *System* page shows each source's last run and error. |
-| An AI key doesn't work | Settings → AI provider shows the provider's error. Keys go in `.env`; restart after changing it. |
+| No jobs appear | Finish setup first (it opens at http://127.0.0.1:3000/welcome): nothing is searched before you press *Start job search*. Then check that at least one source is on and discovery runs (Settings → Scheduling). The *System* page shows each source's last run and error. |
+| An AI key doesn't work | The setup step and Settings → AI provider show the provider's error. Keys live in `.env`; a key pasted in setup is saved there and used without a restart. A key set in your shell wins over `.env`. In Docker, edit `.env` and run `docker compose up -d`. |

@@ -11,7 +11,7 @@ Everything Job Scraper keeps is stored in the data folder (`DATA_DIR`, by defaul
 | Your profiles, preferences, jobs, matches, applications and their history | `data/job-scraper.db` (SQLite) |
 | Uploaded CVs, tailored CVs and cover letters (PDF/HTML/JSON), screenshots | `data/files/` |
 | Website sign-ins for applying in the browser (cookies) | `data/browser-profiles/<site>/` |
-| Email OAuth refresh tokens (Gmail/Outlook) | the database's settings table |
+| Email OAuth refresh tokens (Gmail/Outlook), ChatGPT sign-in tokens | the database's settings table |
 | Backups (database + files; never `.env`) | `data/backups/` |
 | API keys, SMTP/IMAP passwords, bot tokens | `.env` |
 
@@ -40,6 +40,8 @@ With **no AI provider**, nothing is sent: Job Scraper uses offline rules. With *
 | Reading a job page found by web search | The page's address and text (no personal data) |
 
 Each provider handles this under its own API terms; check whether yours keeps or trains on API data. A daily spending limit can be set in Settings → AI provider.
+
+With **Sign in with ChatGPT**, the same data goes to OpenAI under your ChatGPT plan; requests are sent with storage at OpenAI turned off (`store: false`). The sign-in tokens are kept in the database, like the email sign-ins. With **Claude through your Claude Code**, the same data goes to Anthropic through the Claude Code installed on your computer, under your Claude account's terms. Job Scraper runs it in an empty folder, with its tools and add-ons switched off, and without passing on the keys and passwords from Job Scraper's `.env`.
 
 ### Job sources and web search
 

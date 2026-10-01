@@ -2,8 +2,18 @@
 
 ## Unreleased
 
+### Setup
+- A setup wizard opens on first start, one step at a time: AI model, CV, profile check, the jobs you want, start. Every other page waits until it is finished, and nothing is searched or matched before you press *Start job search*.
+- The AI step tests the model before you go on. A key pasted there is saved in `.env` and used without a restart.
+- Two ways to use an AI plan instead of an API key: **Sign in with ChatGPT** (OpenAI's program for open-source local apps) and **Claude through your own Claude Code** (`claude -p`, signed in with your account). Plans have a daily number of AI calls instead of a dollar budget.
+- The jobs step asks for country, state and city (Indian states are now recognised, and cities know their state), remote jobs, work mode, job type, expected salary (CTC) with a *negotiable* switch, notice period and match level.
+
 ### Updating
 - The *System* page shows the installed version, with links to the latest release and the update steps (the app itself never contacts GitHub). The README explains how to update a clone.
+
+### Changed
+- The *Get started* checklist is replaced by the wizard; `/setup` leads there.
+- "Minimum salary" is now "Expected salary": jobs stating less are held back unless it is negotiable, in which case they are shown with a note.
 
 ## 1.0.0
 
