@@ -79,6 +79,8 @@ To reach it from other devices on your network, set `APP_PASSWORD` in `.env`, pu
 
 ## Updating
 
+Stop Job Scraper first (Ctrl+C), then:
+
 ```bash
 git pull
 pnpm install
@@ -87,7 +89,9 @@ pnpm build
 pnpm start
 ```
 
-Database changes apply automatically on start, after a snapshot of the database is saved in `data/backups/pre-migration-<time>/`. With Docker: `git pull && docker compose up -d --build`.
+Don't skip `pnpm build`: `pnpm start` serves the last build, so the web interface would stay on the old version while the worker runs the new one. Database changes apply automatically on start, after a snapshot of the database is saved in `data/backups/pre-migration-<time>/`. With Docker: `git pull && docker compose up -d --build`.
+
+To hear about new versions, choose **Watch → Custom → Releases** on the GitHub repository. The System page shows the version you run, with links to the latest release and to these steps; [CHANGELOG.md](../CHANGELOG.md) lists what changed.
 
 ## Backups and restore
 

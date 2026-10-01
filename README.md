@@ -39,6 +39,22 @@ Then open http://127.0.0.1:3000. Your data is kept in the `job-scraper-data` vol
 
 More detail: [docs/INSTALL.md](docs/INSTALL.md) covers macOS, Linux, Windows (WSL), Docker, updating and backups.
 
+## Updating
+
+Stop Job Scraper (Ctrl+C), then in its folder:
+
+```bash
+git pull
+pnpm install
+pnpm exec playwright install chromium   # quick when nothing changed
+pnpm build
+pnpm start
+```
+
+With Docker: `git pull && docker compose up -d --build`.
+
+Your `.env` and `data/` are not touched, and database changes apply on start after an automatic backup. To hear about new versions, choose **Watch → Custom → Releases** on GitHub. The **System** page shows the version you run and links to the latest release. See [CHANGELOG.md](CHANGELOG.md) for what changed and [docs/INSTALL.md](docs/INSTALL.md#updating) for details.
+
 ## Daily use
 
 - **Job feed:** new matches with a score and the reasons for it. Approve the ones you want; skip the rest.

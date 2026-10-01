@@ -9,3 +9,11 @@ test('the System page shows what ran and what went wrong (PRD §52)', async ({ p
   // The browser-apply spec skipped a CAPTCHA job earlier in this run.
   await expect(page.getByTestId('system-failures')).toContainText('The site showed a CAPTCHA (CAPTCHA_DETECTED, browser)');
 });
+
+test('the System page shows the installed version and how to update', async ({ page }) => {
+  await page.goto('/system');
+  const version = page.getByTestId('system-version');
+  await expect(version).toContainText(/Job Scraper \d+\.\d+\.\d+/);
+  await expect(version.getByRole('link', { name: 'See the latest release' })).toHaveAttribute('href', /\/releases\/latest$/);
+  await expect(version.getByRole('link', { name: 'How to update' })).toHaveAttribute('href', /\/docs\/INSTALL\.md#updating$/);
+});

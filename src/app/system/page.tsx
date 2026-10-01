@@ -8,6 +8,7 @@ import { createFailureLog, describeFailure } from '@/server/failures';
 import { describeInterval } from '@/server/scheduler';
 import { getSystemStatus } from '@/server/status';
 import { systemReport } from '@/server/status/report';
+import { versionInfo } from '@/server/status/version';
 
 export const metadata: Metadata = { title: 'System' };
 
@@ -27,6 +28,7 @@ export default function SystemPage() {
   const r = systemReport(ctx.db, { now: new Date(now) });
   const failingSources = r.sources.filter((x) => x.enabled && x.consecutiveFailures > 0);
   const problems = createFailureLog(ctx.settings).recent().filter((p) => now - p.at < r.days * 86_400_000);
+  const v = versionInfo();
   return (
     <div className="max-w-5xl space-y-6">
       <AutoRefresh everyMs={30_000} />
@@ -159,6 +161,12 @@ export default function SystemPage() {
             </tbody>
           </table>
         )}
+      </Card>
+
+      <Card title="Version">
+        <p className="text-sm" data-testid="system-version">
+          Job Scraper {v.version}. <a href={v.releasesUrl} target="_blank" rel="noreferrer" className="underline">See the latest release</a> · <a href={v.updateGuideUrl} target="_blank" rel="noreferrer" className="underline">How to update</a>
+        </p>
       </Card>
     </div>
   );

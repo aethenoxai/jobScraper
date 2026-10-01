@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Updating
+- The *System* page shows the installed version, with links to the latest release and the update steps (the app itself never contacts GitHub). The README explains how to update a clone.
+
 ## 1.0.0
 
 The first public release. Job Scraper runs on your own computer and covers the whole search, from finding jobs to tracking replies.
