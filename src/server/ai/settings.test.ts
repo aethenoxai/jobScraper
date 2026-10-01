@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_AI_SETTINGS, mergeAiSettings } from './settings';
 
 describe('mergeAiSettings', () => {
-  const current = { provider: 'openai' as const, fastModel: 'gpt-x', qualityModel: null, baseUrl: null, dailyBudgetUsd: 2 };
+  const current = { provider: 'openai' as const, fastModel: 'gpt-x', qualityModel: null, baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 };
 
   it('keeps fields the form did not send (e.g. budget hidden while provider is None)', () => {
     expect(mergeAiSettings(current, { provider: 'none' })).toMatchObject({ provider: 'none', dailyBudgetUsd: 2 });

@@ -123,6 +123,8 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
     env: opts.env ?? (() => liveEnv()),
     onBudgetExceeded: (budget) =>
       notifier.notify('budget.exhausted', `budget:${today()}`, { title: 'Daily AI budget reached', body: `$${budget.toFixed(2)} spent today. Job Scraper uses offline rules until tomorrow.`, link: '/settings/ai' }),
+    onCallLimitReached: (limit) =>
+      notifier.notify('budget.exhausted', `calls:${today()}`, { title: 'Daily AI call limit reached', body: `${limit} AI calls through your plan today. Job Scraper uses offline rules until tomorrow.`, link: '/settings/ai' }),
   });
   const cvs = createCvService({ db: handle.db, files, queue, profiles, ai, log });
   const recoveredCvs = cvs.recoverInterrupted();

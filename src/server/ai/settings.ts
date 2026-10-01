@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const AI_SETTINGS_KEY = 'ai';
-export const AI_PROVIDERS = ['none', 'openai', 'anthropic', 'google', 'ollama', 'openai-compatible'] as const;
+export const AI_PROVIDERS = ['none', 'openai', 'anthropic', 'google', 'ollama', 'openai-compatible', 'claude-code'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 export type ModelRole = 'fast' | 'quality';
 
@@ -15,6 +15,8 @@ export const AiSettingsSchema = z.object({
   baseUrl: z.string().trim().url().nullable(),
   /** Stop AI calls for the rest of the day once this much (USD, estimated) is spent. Null = no limit. */
   dailyBudgetUsd: z.number().min(0).nullable(),
+  /** Subscription providers (no per-call cost): stop after this many calls a day, so matching can't use up the plan. */
+  dailyCallLimit: z.number().int().min(1).nullable().default(300),
 });
 export type AiSettings = z.infer<typeof AiSettingsSchema>;
 
@@ -24,7 +26,11 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   qualityModel: null,
   baseUrl: null,
   dailyBudgetUsd: 2,
+  dailyCallLimit: 300,
 };
+
+/** Providers paid through the user's own plan: no money is counted, calls are (dailyCallLimit). */
+export const SUBSCRIPTION_PROVIDERS: readonly AiProvider[] = ['claude-code'];
 
 /** OD-4 defaults; users can override per role in Settings → AI. */
 export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string | null; quality: string | null }> = {
@@ -33,6 +39,8 @@ export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string 
   google: { fast: 'gemini-2.5-flash', quality: 'gemini-2.5-pro' },
   ollama: { fast: 'llama3.1', quality: 'llama3.1' },
   'openai-compatible': { fast: null, quality: null },
+  // Claude Code's model names follow the newest model of each family.
+  'claude-code': { fast: 'haiku', quality: 'sonnet' },
 };
 
 /** Models offered in setup and settings (the user can also type another one). Empty: type the model's name. */
@@ -42,6 +50,7 @@ export const MODEL_CHOICES: Record<Exclude<AiProvider, 'none'>, string[]> = {
   google: ['gemini-2.5-pro', 'gemini-2.5-flash'],
   ollama: [],
   'openai-compatible': [],
+  'claude-code': ['sonnet', 'opus', 'haiku'],
 };
 
 /** Env var holding each provider's API key. Keys live only in .env (PRD §37). */
@@ -59,6 +68,7 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
   google: 'Google Gemini',
   ollama: 'Ollama (local models)',
   'openai-compatible': 'OpenAI-compatible server',
+  'claude-code': 'Claude (through your Claude Code)',
 };
 
 /**
@@ -79,6 +89,7 @@ export function mergeAiSettings(current: AiSettings, form: Record<string, string
     qualityModel: has('qualityModel') ? text('qualityModel') : providerChanged ? null : current.qualityModel,
     baseUrl: has('baseUrl') ? text('baseUrl') : providerChanged ? null : current.baseUrl,
     dailyBudgetUsd: has('dailyBudgetUsd') ? (text('dailyBudgetUsd') === null ? null : Number(form.dailyBudgetUsd)) : current.dailyBudgetUsd,
+    dailyCallLimit: has('dailyCallLimit') ? (text('dailyCallLimit') === null ? null : Number(form.dailyCallLimit)) : current.dailyCallLimit,
   };
   return AiSettingsSchema.parse(next);
 }

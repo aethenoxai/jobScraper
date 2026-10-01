@@ -148,4 +148,49 @@ describe('ai', () => {
     expect(estimateCostUsd('ollama', 'llama3.1', 1_000_000, 1_000_000)).toBe(0);
     expect(estimateCostUsd('openai', 'unknown-model', 1_000_000, 0)).toBeGreaterThan(0);
   });
+
+  describe('Claude through the user’s own Claude Code', () => {
+    function claude(opts: { bin?: string | null; limit?: number | null } = {}) {
+      const settings = createSettings(t.db);
+      settings.set(AI_SETTINGS_KEY, { provider: 'claude-code', fastModel: null, qualityModel: null, baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: opts.limit ?? null });
+      const calls: Array<{ bin: string; model: string; prompt: string }> = [];
+      const ai = createAi({
+        db: t.db,
+        settings,
+        log,
+        env: {},
+        claudeCodeBin: () => (opts.bin === undefined ? '/usr/local/bin/claude' : opts.bin),
+        runClaudeCode: async (req) => {
+          calls.push({ bin: req.bin, model: req.model, prompt: req.prompt });
+          return { object: req.schema.parse({ name: 'Asha' }), inputTokens: 100, outputTokens: 10 };
+        },
+      });
+      return { ai, calls };
+    }
+    const ask = (ai: ReturnType<typeof createAi>, role: 'fast' | 'quality' = 'fast') => ai.generateObject({ role, task: 't', schema: z.object({ name: z.string() }), system: 's', prompt: 'p' });
+
+    it('is ready when claude is installed (no key), and says how to get it when it is not', () => {
+      expect(claude().ai.status()).toMatchObject({ configured: true, keyEnvVar: null, models: { fast: 'haiku', quality: 'sonnet' } });
+      expect(claude({ bin: null }).ai.status()).toMatchObject({ configured: false, reason: expect.stringMatching(/install/i) });
+    });
+
+    it('answers through claude with the model of each role, and costs nothing extra', async () => {
+      const { ai, calls } = claude();
+      expect(await ask(ai)).toEqual({ name: 'Asha' });
+      await ask(ai, 'quality');
+      expect(calls.map((c) => c.model)).toEqual(['haiku', 'sonnet']);
+      const rows = t.db.select().from(aiUsage).all();
+      expect(rows.map((r) => [r.provider, r.costUsd, r.ok])).toEqual([['claude-code', 0, true], ['claude-code', 0, true]]);
+      expect(ai.status().spentTodayUsd).toBe(0);
+    });
+
+    it('stops after the daily number of calls, so matching cannot use up the plan', async () => {
+      const { ai, calls } = claude({ limit: 2 });
+      await ask(ai);
+      await ask(ai);
+      await expect(ask(ai)).rejects.toBeInstanceOf(AiBudgetExceededError);
+      await expect(ask(ai)).rejects.toThrow(/2 AI calls/);
+      expect(calls).toHaveLength(2);
+    });
+  });
 });

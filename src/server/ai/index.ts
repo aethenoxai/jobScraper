@@ -3,19 +3,21 @@ import { createGoogle } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText, Output, type LanguageModel } from 'ai';
-import { eq, gte, sum } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, sum } from 'drizzle-orm';
 import { createOllama } from 'ollama-ai-provider-v2';
 import type { z } from 'zod';
 import type { Db } from '../db';
 import { aiUsage } from '../db/schema';
 import type { Logger } from '../logging';
 import type { SettingsStore } from '../settings';
+import { claudeCodeObject, findClaudeCode } from './claude-code';
 import {
   AI_SETTINGS_KEY,
   AiSettingsSchema,
   DEFAULT_AI_SETTINGS,
   DEFAULT_MODELS,
   KEY_ENV_VAR,
+  SUBSCRIPTION_PROVIDERS,
   type AiProvider,
   type AiSettings,
   type ModelRole,
@@ -76,7 +78,8 @@ const FALLBACK_PRICE: [number, number] = [3, 15];
 const RESERVED_OUTPUT_TOKENS = 2000;
 
 export function estimateCostUsd(provider: AiProvider, model: string, inputTokens: number, outputTokens: number): number {
-  if (provider === 'ollama') return 0;
+  // Local models cost nothing; subscriptions are paid through the user's plan.
+  if (provider === 'ollama' || SUBSCRIPTION_PROVIDERS.includes(provider)) return 0;
   const [, inP, outP] = PRICES.find(([re]) => re.test(model)) ?? [null, ...FALLBACK_PRICE];
   return (inputTokens * inP + outputTokens * outP) / 1_000_000;
 }
@@ -93,6 +96,8 @@ export const defaultModelFactory: ModelFactory = (provider, modelId, settings, e
       return createOllama({ baseURL: settings.baseUrl ?? env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434/api' })(modelId);
     case 'openai-compatible':
       return createOpenAICompatible({ name: 'custom', baseURL: settings.baseUrl ?? '', apiKey: env.OPENAI_COMPATIBLE_API_KEY })(modelId);
+    case 'claude-code':
+      throw new Error('Claude Code is run directly, not through a model factory.');
   }
 };
 
@@ -106,17 +111,37 @@ export function createAi(deps: {
   modelFactory?: ModelFactory;
   /** Called (with the budget) whenever the daily budget stops a call. */
   onBudgetExceeded?: (budgetUsd: number) => void;
+  /** Called (with the limit) whenever the daily call limit of a subscription stops a call. */
+  onCallLimitReached?: (limit: number) => void;
+  /** Where the user's Claude Code is (default: found on the PATH). */
+  claudeCodeBin?: () => string | null;
+  /** Runs Claude Code (tests pass a stand-in). */
+  runClaudeCode?: typeof claudeCodeObject;
 }): Ai {
+  const claudeBin = deps.claudeCodeBin ?? (() => findClaudeCode());
+  const runClaude = deps.runClaudeCode ?? claudeCodeObject;
   const readEnv = () => (typeof deps.env === 'function' ? deps.env() : (deps.env ?? process.env));
   const now = deps.now ?? (() => new Date());
   const factory = deps.modelFactory ?? defaultModelFactory;
   const readSettings = () => deps.settings.get(AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS);
 
-  function spentToday(db: Pick<Db, 'select'> = deps.db): number {
+  const startOfToday = () => {
     const start = now();
     start.setHours(0, 0, 0, 0);
-    const row = db.select({ total: sum(aiUsage.costUsd) }).from(aiUsage).where(gte(aiUsage.createdAt, start)).get();
+    return start;
+  };
+  function spentToday(db: Pick<Db, 'select'> = deps.db): number {
+    const row = db.select({ total: sum(aiUsage.costUsd) }).from(aiUsage).where(gte(aiUsage.createdAt, startOfToday())).get();
     return Number(row?.total ?? 0);
+  }
+  /** Calls made today through subscription providers (the daily call limit counts these). */
+  function subscriptionCallsToday(db: Pick<Db, 'select'>): number {
+    const row = db
+      .select({ n: count() })
+      .from(aiUsage)
+      .where(and(gte(aiUsage.createdAt, startOfToday()), inArray(aiUsage.provider, [...SUBSCRIPTION_PROVIDERS])))
+      .get();
+    return row?.n ?? 0;
   }
 
   function status(): AiStatus {
@@ -131,7 +156,8 @@ export function createAi(deps: {
     // Local OpenAI-compatible servers often take no key: only its address is required.
     const keyPresent = keyEnvVar && s.provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
     let reason: string | null = null;
-    if (!keyPresent) reason = `Add ${keyEnvVar} to your .env file.`;
+    if (s.provider === 'claude-code' && !claudeBin()) reason = 'Claude Code isn’t installed on this computer. Install it and sign in with `claude auth login`.';
+    else if (!keyPresent) reason = `Add ${keyEnvVar} to your .env file.`;
     else if (!models.fast || !models.quality) reason = 'Enter model names for this provider.';
     else if (s.provider === 'openai-compatible' && !s.baseUrl) reason = 'Enter the base URL of your OpenAI-compatible server.';
     return { ...base, configured: reason === null, reason, models, keyEnvVar, keyPresent };
@@ -147,13 +173,24 @@ export function createAi(deps: {
       // Check the budget and reserve this call's likely cost in one transaction: calls running side by side see
       // each other's reservations, so together they can't overspend. The row is corrected when the call ends.
       const reserved = estimateCostUsd(s.provider, modelId, Math.ceil(((req.system?.length ?? 0) + req.prompt.length) / 4), RESERVED_OUTPUT_TOKENS);
+      const subscription = SUBSCRIPTION_PROVIDERS.includes(s.provider);
+      const callLimit = subscription ? s.dailyCallLimit : null;
+      let limitReached = false;
       const usageId = deps.db.transaction(
         (tx) => {
+          if (callLimit !== null && subscriptionCallsToday(tx) >= callLimit) {
+            limitReached = true;
+            return null;
+          }
           if (st.dailyBudgetUsd !== null && spentToday(tx) >= st.dailyBudgetUsd) return null;
           return tx.insert(aiUsage).values({ task: req.task, role: req.role, provider: s.provider, model: modelId, inputTokens: 0, outputTokens: 0, costUsd: reserved, ok: false, createdAt: now() }).returning({ id: aiUsage.id }).get().id;
         },
         { behavior: 'immediate' },
       );
+      if (usageId === null && limitReached) {
+        deps.onCallLimitReached?.(callLimit!);
+        throw new AiBudgetExceededError(`Daily limit of ${callLimit} AI calls through your plan reached. AI work resumes tomorrow.`);
+      }
       if (usageId === null) {
         deps.onBudgetExceeded?.(st.dailyBudgetUsd!);
         throw new AiBudgetExceededError(`Daily AI budget of $${st.dailyBudgetUsd!.toFixed(2)} reached. AI work resumes tomorrow.`);
@@ -165,13 +202,21 @@ export function createAi(deps: {
           .where(eq(aiUsage.id, usageId))
           .run();
 
+      const abortSignal = req.signal ? AbortSignal.any([req.signal, AbortSignal.timeout(req.timeoutMs ?? 120_000)]) : AbortSignal.timeout(req.timeoutMs ?? 120_000);
       try {
+        if (s.provider === 'claude-code') {
+          const bin = claudeBin();
+          if (!bin) throw new AiNotConfiguredError('Claude Code isn’t installed on this computer.');
+          const r = await runClaude({ bin, model: modelId, system: req.system, prompt: req.prompt, schema: req.schema, signal: req.signal, timeoutMs: req.timeoutMs });
+          record(true, r.inputTokens, r.outputTokens);
+          return r.object;
+        }
         const result = await generateText({
           model: factory(s.provider, modelId, s, readEnv()),
           output: Output.object({ schema: req.schema }),
           system: req.system,
           prompt: req.prompt,
-          abortSignal: req.signal ? AbortSignal.any([req.signal, AbortSignal.timeout(req.timeoutMs ?? 120_000)]) : AbortSignal.timeout(req.timeoutMs ?? 120_000),
+          abortSignal,
         });
         record(true, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0);
         return result.output as T;
