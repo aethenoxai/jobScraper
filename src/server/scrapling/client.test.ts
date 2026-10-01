@@ -111,6 +111,26 @@ describe('scrapling client', () => {
     expect(received().filter((l) => l.startsWith('start '))).toHaveLength(2);
   });
 
+  it('stops a helper that was only started (the check at worker start) once it has been idle', async () => {
+    const c = client({ idleMs: 100 });
+    await c.start();
+    await until(() => received().includes('eof'));
+  });
+
+  it('a helper still shutting down after going idle does not fail the next helper’s calls', async () => {
+    const c = client({ idleMs: 50 }, { FAKE_EXIT_DELAY: '400' });
+    await fetchPage(c, 'https://x.example/one');
+    await until(() => received().includes('eof'));
+    await expect(fetchPage(c, 'https://x.example/two?delay=700')).resolves.toMatchObject({ html: expect.stringContaining('two') });
+  });
+
+  it('close() returns when the helper could not be started at all (Python path is not runnable)', async () => {
+    const c = client({ python: dir }); // a folder: spawn fails with EACCES and never exits
+    expect(codeOf(await c.start().catch((e: unknown) => e))).toBe('HELPER_FAILED');
+    const closed = await Promise.race([c.close().then(() => 'closed'), new Promise((r) => setTimeout(() => r('hung'), 2_000))]);
+    expect(closed).toBe('closed');
+  });
+
   it('close() ends the helper through its stdin', async () => {
     const c = client();
     await c.start();

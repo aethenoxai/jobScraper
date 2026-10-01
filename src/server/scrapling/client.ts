@@ -132,18 +132,30 @@ export function createScraplingClient(opts: ScraplingClientOptions): ScraplingCl
         proc.kill('SIGKILL');
       }, opts.startTimeoutMs ?? 30_000);
       proc.stdin.on('error', () => {}); // a dead helper is handled by 'exit'
-      exited = new Promise((done) => proc.once('exit', () => done()));
+      let markExited!: () => void;
+      exited = new Promise((done) => {
+        markExited = done;
+        proc.once('exit', () => done());
+      });
       proc.on('error', (err: NodeJS.ErrnoException) => {
         clearTimeout(timer);
         fail(err.code === 'ENOENT' ? 'NOT_INSTALLED' : 'HELPER_FAILED', `The Scrapling helper could not be started: ${err.message}`);
+        // A process that never started never emits 'exit'.
+        if (proc.pid === undefined) {
+          markExited();
+          if (child === proc) {
+            child = null;
+            ready = null;
+          }
+        }
       });
       proc.on('exit', (code, signal) => {
         clearTimeout(timer);
-        if (child === proc) {
-          child = null;
-          ready = null;
-        }
         if (!started) fail('HELPER_FAILED', `The Scrapling helper stopped while starting (${signal ?? `exit ${code}`}).`);
+        // Only this process's own calls fail: after close() (or an idle stop) a new helper may already be running.
+        if (child !== proc) return;
+        child = null;
+        ready = null;
         failAll(new PageFetchError('HELPER_FAILED', `The Scrapling helper stopped (${signal ?? `exit ${code}`}).`));
       });
       createInterface({ input: proc.stderr }).on('line', (line) => log.debug({ helper: line }, 'scrapling helper'));
@@ -161,6 +173,8 @@ export function createScraplingClient(opts: ScraplingClientOptions): ScraplingCl
           const info = { scrapling: String(msg.scrapling), python: String(msg.python) };
           report({ ready: true, info });
           resolve(info);
+          // Started only to check it (worker start): stop again when nothing comes.
+          if (pending.size === 0) scheduleIdle();
         } else if (msg.event === 'fatal') {
           started = true;
           clearTimeout(timer);
@@ -189,6 +203,8 @@ export function createScraplingClient(opts: ScraplingClientOptions): ScraplingCl
     if (idleTimer) clearTimeout(idleTimer);
     await start();
     callOpts.signal?.throwIfAborted();
+    // start() schedules an idle stop when nothing is pending yet; this call is.
+    if (idleTimer) clearTimeout(idleTimer);
     const id = nextId++;
     return new Promise<T>((resolve, reject) => {
       const drop = (err: unknown) =>
@@ -226,7 +242,7 @@ export function createScraplingClient(opts: ScraplingClientOptions): ScraplingCl
     proc.kill('SIGTERM');
     if (await waited(KILL_GRACE_MS)) return;
     proc.kill('SIGKILL');
-    await gone;
+    await waited(KILL_GRACE_MS);
   }
 
   return { start, call, close };

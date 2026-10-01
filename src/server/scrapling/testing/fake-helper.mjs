@@ -35,5 +35,6 @@ createInterface({ input: process.stdin }).on('line', (line) => {
 });
 process.stdin.on('end', () => {
   note('eof');
-  process.exit(0);
+  // FAKE_EXIT_DELAY: a helper that takes a while to shut its browser down.
+  setTimeout(() => process.exit(0), Number(process.env.FAKE_EXIT_DELAY ?? 0));
 });
