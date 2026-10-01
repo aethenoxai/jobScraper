@@ -1,4 +1,5 @@
 import mammoth from 'mammoth';
+import WordExtractor from 'word-extractor';
 import { extractText, getDocumentProxy } from 'unpdf';
 
 export const MAX_CV_BYTES = 10 * 1024 * 1024;
@@ -7,16 +8,17 @@ export const MAX_PDF_PAGES = 30;
 /** A Word CV unpacks to well under a megabyte of text and images; more means a zip bomb or not a CV. */
 const MAX_DOCX_UNPACKED_BYTES = 40 * 1024 * 1024;
 const MAX_DOCX_ENTRIES = 1000;
-export type CvType = 'pdf' | 'docx';
+export type CvType = 'pdf' | 'docx' | 'doc';
 export const CV_MIME: Record<CvType, string> = {
   pdf: 'application/pdf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  doc: 'application/msword',
 };
 
 export class UnsupportedCvTypeError extends Error {
   override name = 'UnsupportedCvTypeError';
   constructor() {
-    super('Unsupported file. Please upload your CV as a PDF or Word (.docx) file.');
+    super('Unsupported file. Please upload your CV as a PDF or Word (.docx or .doc) file.');
   }
 }
 export class CvTooLargeError extends Error {
@@ -38,6 +40,9 @@ export class NoTextError extends Error {
   }
 }
 
+const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+const WORD_STREAM = Buffer.from('WordDocument', 'utf16le');
+
 /** Identifies the file type from its content (never trust the file name). */
 export function sniffCvType(buf: Buffer): CvType | null {
   if (buf.subarray(0, 5).toString('latin1') === '%PDF-') return 'pdf';
@@ -45,6 +50,8 @@ export function sniffCvType(buf: Buffer): CvType | null {
   if (buf.length > 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) {
     return buf.includes('word/') ? 'docx' : null;
   }
+  // Old .doc = OLE container; Excel and PowerPoint use the same one, only Word has a "WordDocument" stream.
+  if (buf.subarray(0, 8).equals(OLE_MAGIC)) return buf.includes(WORD_STREAM) ? 'doc' : null;
   return null;
 }
 
@@ -102,6 +109,8 @@ export async function extractCvText(buf: Buffer): Promise<{ type: CvType; text: 
     } finally {
       await pdf.loadingTask.destroy().catch(() => {});
     }
+  } else if (type === 'doc') {
+    raw = (await new WordExtractor().extract(buf)).getBody();
   } else {
     const unpacked = zipUnpackedSize(buf);
     if (unpacked.bytes > MAX_DOCX_UNPACKED_BYTES || unpacked.entries > MAX_DOCX_ENTRIES) throw new CvTooLargeError('This Word file unpacks to far more than a CV would. Save it again as .docx or PDF and upload that.');

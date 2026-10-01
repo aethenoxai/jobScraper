@@ -51,6 +51,8 @@ export interface GenerateObjectRequest<T> {
   schema: z.ZodType<T>;
   system: string;
   prompt: string;
+  /** The original document (e.g. the CV as PDF), for providers that read files; the others get the prompt only. */
+  file?: { data: Uint8Array; mediaType: string };
   timeoutMs?: number;
   /** Cancels the call (e.g. the worker task was aborted). */
   signal?: AbortSignal;
@@ -64,6 +66,9 @@ export interface Ai {
 export type ModelFactory = (provider: Exclude<AiProvider, 'none'>, modelId: string, settings: AiSettings, env: Record<string, string | undefined>) => LanguageModel;
 
 /** Rough list prices in USD per 1M tokens (input, output). Estimates only, used for the daily budget. */
+/** Providers whose API takes documents (PDF) next to the prompt. */
+const READS_FILES = new Set<AiProvider>(['openai', 'anthropic', 'google', 'chatgpt']);
+
 const PRICES: Array<[RegExp, number, number]> = [
   [/haiku/i, 1, 5],
   [/sonnet/i, 3, 15],
@@ -211,6 +216,10 @@ export function createAi(deps: {
           .where(eq(aiUsage.id, usageId))
           .run();
 
+      const input =
+        req.file && READS_FILES.has(s.provider)
+          ? { messages: [{ role: 'user' as const, content: [{ type: 'text' as const, text: req.prompt }, { type: 'file' as const, data: req.file.data, mediaType: req.file.mediaType }] }] }
+          : { prompt: req.prompt };
       const abortSignal = req.signal ? AbortSignal.any([req.signal, AbortSignal.timeout(req.timeoutMs ?? 120_000)]) : AbortSignal.timeout(req.timeoutMs ?? 120_000);
       try {
         if (s.provider === 'claude-code') {
@@ -227,7 +236,7 @@ export function createAi(deps: {
           const result = streamText({
             model: factory('chatgpt', modelId, s, { CHATGPT_ACCESS_TOKEN: await chatgptToken() }),
             output: Output.object({ schema: req.schema }),
-            prompt: req.prompt,
+            ...input,
             providerOptions: { openai: { store: false, instructions: req.system, systemMessageMode: 'remove' } },
             abortSignal,
             onError: ({ error }) => {
@@ -253,7 +262,7 @@ export function createAi(deps: {
           model: factory(s.provider, modelId, s, readEnv()),
           output: Output.object({ schema: req.schema }),
           system: req.system,
-          prompt: req.prompt,
+          ...input,
           abortSignal,
         });
         record(true, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0);

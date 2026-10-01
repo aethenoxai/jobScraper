@@ -207,7 +207,13 @@ function evidenceCheck(p: ProfileData, text: string): string[] {
   return warnings;
 }
 
-export async function extractProfile(text: string, ai: Ai | null, opts: { now?: Date } = {}): Promise<ExtractionResult> {
+/** The AI was set up but couldn't read the CV: the user sees why and tries again (no fallback to fixed rules). */
+export class CvReadError extends Error {
+  override name = 'CvReadError';
+}
+
+/** `file`: the original document, for models that read files; the text always goes too (and is what facts are checked against). */
+export async function extractProfile(text: string, ai: Ai | null, opts: { now?: Date; file?: { data: Uint8Array; mediaType: string } } = {}): Promise<ExtractionResult> {
   const now = opts.now ?? new Date();
   if (!ai || !ai.status().configured) {
     return { data: heuristicExtract(text, now), method: 'heuristic', warnings: ['Extracted offline without AI; please review every field.'] };
@@ -219,6 +225,7 @@ export async function extractProfile(text: string, ai: Ai | null, opts: { now?: 
       schema: AiExtractionSchema,
       system: EXTRACTION_SYSTEM_PROMPT,
       prompt: `CV text:\n"""\n${text.slice(0, 30_000)}\n"""`,
+      file: opts.file,
     });
     const data = fromAi(out);
     const warnings = evidenceCheck(data, text);
@@ -228,11 +235,6 @@ export async function extractProfile(text: string, ai: Ai | null, opts: { now?: 
     if (!valid.success) throw new Error(`AI output failed validation: ${valid.error.issues[0]?.message}`);
     return { data: valid.data, method: 'ai', warnings };
   } catch (err) {
-    const reason = scrubSecrets(err instanceof Error ? err.message : String(err));
-    return {
-      data: heuristicExtract(text, now),
-      method: 'heuristic',
-      warnings: [`AI extraction failed (${reason.slice(0, 200)}); used offline extraction instead. Please review every field.`],
-    };
+    throw new CvReadError(`The AI couldn’t read your CV: ${scrubSecrets(err instanceof Error ? err.message : String(err)).slice(0, 200)}`);
   }
 }

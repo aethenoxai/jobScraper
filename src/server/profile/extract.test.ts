@@ -73,11 +73,17 @@ describe('extractProfile', () => {
     expect(r.data.yearsExperience).toBeCloseTo(3.8, 0);
   });
 
-  it('falls back to offline extraction when the AI call fails', async () => {
-    const r = await extractProfile(cv.text, fakeAi(new Error('rate limited')));
-    expect(r.method).toBe('heuristic');
-    expect(r.warnings.join(' ')).toMatch(/AI extraction failed/);
-    expect(r.data.personal.fullName).toBe('Asha Rao');
+  it('when the AI is set up but fails, says so instead of falling back to fixed rules', async () => {
+    await expect(extractProfile(cv.text, fakeAi(new Error('rate limited')))).rejects.toThrow(/AI couldn.t read your CV: rate limited/);
+  });
+
+  it('gives the model the original document as well as its text', async () => {
+    const seen: Array<{ file?: { mediaType: string }; prompt: string }> = [];
+    const ai: Ai = { status: () => ({ configured: true }) as AiStatus, generateObject: async (req) => (seen.push(req), aiOutput() as never) };
+    const file = { data: new Uint8Array([1, 2, 3]), mediaType: 'application/pdf' };
+    await extractProfile(cv.text, ai, { file });
+    expect(seen[0].file).toBe(file);
+    expect(seen[0].prompt).toContain('asha.rao@example.com');
   });
 
   it('removes application details, time zone and country the CV does not state', async () => {
@@ -110,8 +116,9 @@ describe('extractProfile', () => {
 
   it('scrubs secrets from AI error messages it shows the user', async () => {
     registerSecret('sk-very-secret-key-123');
-    const r = await extractProfile(cv.text, fakeAi(new Error('401: invalid key sk-very-secret-key-123')));
-    expect(r.warnings.join(' ')).not.toContain('sk-very-secret-key-123');
+    const err = await extractProfile(cv.text, fakeAi(new Error('401: invalid key sk-very-secret-key-123'))).catch((e: Error) => e);
+    expect(String(err)).toMatch(/401/);
+    expect(String(err)).not.toContain('sk-very-secret-key-123');
   });
 
   it('keeps links that end a sentence', async () => {

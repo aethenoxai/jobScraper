@@ -12,6 +12,12 @@ describe('sniffCvType', () => {
     expect(sniffCvType(Buffer.from('hello world'))).toBeNull();
     expect(sniffCvType(Buffer.from('PK\u0003\u0004 some zip without word'))).toBeNull();
   });
+
+  it('recognises an old Word .doc, but not other Office files in the same container (Excel, PowerPoint)', () => {
+    expect(sniffCvType(fixture('software-engineer-india.doc'))).toBe('doc');
+    const ole = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    expect(sniffCvType(Buffer.concat([ole, Buffer.from('Workbook', 'utf16le')]))).toBeNull();
+  });
 });
 
 describe('extractCvText', () => {
@@ -28,6 +34,13 @@ describe('extractCvText', () => {
     expect(type).toBe('docx');
     expect(text).toContain('marcus.delaney@example.net');
     expect(text).toMatch(/Regional Sales Manager\s*\n/);
+  });
+
+  it('extracts text from an old Word .doc', async () => {
+    const { text, type } = await extractCvText(fixture('software-engineer-india.doc'));
+    expect(type).toBe('doc');
+    expect(text).toContain('asha.rao@example.com');
+    expect(text).toMatch(/Asha Rao\s*\n/);
   });
 
   it('rejects unsupported files', async () => {

@@ -78,6 +78,22 @@ describe('ai', () => {
     expect(keys).toEqual(['sk-added-later-123']);
   });
 
+  it('sends the document itself to providers that read files, and only the text to the others', async () => {
+    const pdf = { data: new Uint8Array([37, 80, 68, 70]), mediaType: 'application/pdf' };
+    const ask = (ai: ReturnType<typeof createAi>) => ai.generateObject({ role: 'fast', task: 'cv-extract', schema: z.object({ name: z.string() }), system: 's', prompt: 'CV text', file: pdf });
+    const withFile: string[] = [];
+    await ask(setup({ calls: withFile }).ai);
+    expect(withFile[0]).toContain('"type":"file"');
+    expect(withFile[0]).toContain('application/pdf');
+    expect(withFile[0]).toContain('CV text');
+    const settings = createSettings(t.db);
+    settings.set(AI_SETTINGS_KEY, { provider: 'openai-compatible', fastModel: 'm', qualityModel: 'm', baseUrl: 'http://127.0.0.1:1/v1', dailyBudgetUsd: null });
+    const textOnly: string[] = [];
+    await ask(createAi({ db: t.db, settings, log, env: {}, modelFactory: () => mockModel('{"name":"Asha"}', textOnly) }));
+    expect(textOnly[0]).not.toContain('"type":"file"');
+    expect(textOnly[0]).toContain('CV text');
+  });
+
   it('ollama needs no key', () => {
     expect(setup({ provider: 'ollama', env: {} }).ai.status().configured).toBe(true);
   });

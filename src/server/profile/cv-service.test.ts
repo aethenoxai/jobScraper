@@ -12,6 +12,8 @@ import { createProfileService } from './service';
 import type { Ai, AiStatus } from '../ai';
 import { heuristicExtract } from './heuristic';
 
+/** A valid answer from the model (contents don't matter to these tests). */
+const okExtraction = () => ({ ...heuristicExtract('Asha Rao', new Date()), personal: { fullName: 'Asha Rao', email: null, phone: null, location: null, country: null, timezone: null, links: [] }, careerLevel: null }) as never;
 const fixture = (name: string) => readFileSync(path.resolve('tests/fixtures/cvs/files', name));
 const log = createLogger({ level: 'silent' });
 let t: ReturnType<typeof createTempDb>;
@@ -132,7 +134,7 @@ describe('cv service', () => {
         const edited = profiles.get(p.id)!.data;
         edited.personal.fullName = 'Typed By User';
         profiles.updateData(p.id, edited, { byUser: true }); // user saves mid-extraction
-        throw new Error('model unavailable'); // falls back to offline extraction
+        return okExtraction();
       },
     };
     const cvs = createCvService({ db: t.db, files, queue, profiles, ai: slowAi, log });
@@ -167,5 +169,46 @@ describe('heuristic output', () => {
   it('is always valid, even for bullet-only lines', () => {
     const p = heuristicExtract('Jane Doe\njane@example.com\n\nProjects\nThing — a project\n•\n• real bullet\n', new Date());
     expect(p.projects[0].bullets.map((b) => b.text)).toEqual(['real bullet']);
+  });
+
+  describe('reading with the AI the user set up', () => {
+    function withAi(fail: boolean) {
+      const files = createFileStore(path.join(t.dir, 'files'));
+      const queue = createQueue(t.db);
+      const profiles = createProfileService({ db: t.db, files });
+      const seen: Array<{ mediaType?: string }> = [];
+      const ai: Ai = {
+        status: () => ({ configured: true }) as AiStatus,
+        generateObject: async (req) => {
+          seen.push({ mediaType: req.file?.mediaType });
+          if (fail) throw new Error('model overloaded');
+          return okExtraction();
+        },
+      };
+      return { queue, profiles, seen, cvs: createCvService({ db: t.db, files, queue, profiles, ai, log }) };
+    }
+
+    it('gives the model a PDF as a document; Word files go as their text', async () => {
+      const { cvs, profiles, seen } = withAi(false);
+      const p = profiles.create('A');
+      await cvs.runExtraction((await cvs.upload(p.id, 'cv.pdf', fixture('software-engineer-india.pdf'))).id);
+      const q = profiles.create('B');
+      await cvs.runExtraction((await cvs.upload(q.id, 'cv.doc', fixture('software-engineer-india.doc'))).id);
+      expect(seen).toEqual([{ mediaType: 'application/pdf' }, { mediaType: undefined }]);
+    });
+
+    it('a CV the AI could not read is marked failed with the reason (no retry loop), and can be tried again', async () => {
+      const { cvs, profiles, queue } = withAi(true);
+      const p = profiles.create('A');
+      const cv = await cvs.upload(p.id, 'cv.pdf', fixture('software-engineer-india.pdf'));
+      const task = queue.claim('w', [PROFILE_EXTRACT_TASK])!;
+      const err = await cvs.runExtraction(cv.id).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PermanentError);
+      queue.fail(task.id, err as Error); // as the worker does
+      expect(cvs.get(cv.id)).toMatchObject({ status: 'failed', error: expect.stringMatching(/AI couldn.t read your CV: model overloaded/) });
+      cvs.retry(cv.id);
+      expect(cvs.get(cv.id)).toMatchObject({ status: 'uploaded', error: null });
+      expect(queue.claim('w', [PROFILE_EXTRACT_TASK])?.payload).toEqual({ masterCvId: cv.id });
+    });
   });
 });

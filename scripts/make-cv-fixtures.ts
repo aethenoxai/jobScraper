@@ -1,8 +1,9 @@
 /**
- * Regenerates binary CV fixtures (PDF/DOCX) from the synthetic CV texts.
+ * Regenerates binary CV fixtures (PDF/DOCX, and .doc on macOS) from the synthetic CV texts.
  * Run: pnpm exec tsx scripts/make-cv-fixtures.ts
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { Document, Packer, Paragraph } from 'docx';
 import { chromium } from '@playwright/test';
@@ -25,6 +26,13 @@ async function main() {
 
     const doc = new Document({ sections: [{ children: cv.text.split('\n').map((l) => new Paragraph(l)) }] });
     writeFileSync(path.join(OUT, `${cv.slug}.docx`), await Packer.toBuffer(doc));
+    // Old Word 97–2003 .doc: macOS's textutil writes it (fixtures are committed, so other systems just skip this).
+    if (process.platform === 'darwin') {
+      const txt = path.join(OUT, `${cv.slug}.txt`);
+      writeFileSync(txt, cv.text);
+      execFileSync('textutil', ['-convert', 'doc', txt, '-output', path.join(OUT, `${cv.slug}.doc`)]);
+      rmSync(txt);
+    }
   }
   // A "scanned" CV: text rendered to an image, embedded in a PDF with no text layer.
   await page.setContent(`<html><body style="margin:0"><p style="font:16px Arial;padding:20px">Scanned CV — Image Only</p></body></html>`);

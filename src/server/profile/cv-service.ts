@@ -1,5 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { isNamedError } from '../../lib/format';
 import type { Ai } from '../ai';
 import type { Db } from '../db';
 import { masterCvs } from '../db/schema';
@@ -96,14 +97,19 @@ export function createCvService(deps: {
 
       try {
         let text: string;
+        const buf = await deps.files.read(cv.path);
         try {
-          text = (await extractCvText(await deps.files.read(cv.path))).text;
+          text = (await extractCvText(buf)).text;
         } catch (err) {
           if (err instanceof NoTextError || err instanceof UnsupportedCvTypeError || err instanceof CvTooLargeError || err instanceof TooManyPagesError) throw new PermanentError(err.message);
           throw new PermanentError('This file could not be read. It may be damaged or password-protected; try exporting it again as PDF or .docx.');
         }
 
-        const result = await extractProfile(text, deps.ai, { now: now() });
+        // A PDF also goes to the model as the document itself; Word files go as their text (models don't take .docx/.doc).
+        const file = cv.mime === CV_MIME.pdf ? { data: new Uint8Array(buf), mediaType: cv.mime } : undefined;
+        const result = await extractProfile(text, deps.ai, { now: now(), file }).catch((err: unknown) => {
+          throw isNamedError(err, 'CvReadError') ? new PermanentError(err.message) : err;
+        });
         const extraction: StoredExtraction = { data: result.data, warnings: result.warnings };
         // Decide inside one transaction: only a profile nobody has touched since we started gets filled directly.
         const applied = deps.profiles.updateDataIf(cv.profileId, result.data, (current) => {
@@ -121,6 +127,12 @@ export function createCvService(deps: {
         setStatus(cv.id, { status: 'failed', error: message });
         throw err;
       }
+    },
+
+    /** "Try again" after a failed read. */
+    retry(masterCvId: number): void {
+      setStatus(masterCvId, { status: 'uploaded', error: null });
+      deps.queue.enqueue(PROFILE_EXTRACT_TASK, { masterCvId }, { dedupeKey: `${PROFILE_EXTRACT_TASK}:${masterCvId}` });
     },
 
     /** After a crash, CVs left "extracting" go back to the queue (called at worker start). */
