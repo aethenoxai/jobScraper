@@ -225,12 +225,22 @@ describe('match service', () => {
     expect(queue.claim('w', [PREPARE_TASK])).toBeNull();
   });
 
-  it('a job paying below the minimum salary is held back with a reason', async () => {
+  it('a job paying below the expected salary is held back with a reason', async () => {
     const { svc, add, profileId, profiles } = setup();
     profiles.updatePreferences(profileId, { ...profiles.get(profileId)!.preferences, salaryMin: 2_000_000, salaryCurrency: 'INR' }, 70);
     const r = await svc.evaluate(add(1, 'low', { salaryText: 'INR 600000 - 800000 per year' }), profileId);
     expect(r.decision).toBe('filtered');
-    expect(t.db.select().from(matches).get()?.filterReason).toMatch(/minimum salary/i);
+    expect(t.db.select().from(matches).get()?.filterReason).toMatch(/expected salary/i);
+  });
+
+  it('with a negotiable expected salary, lower pay is only noted, never held back', async () => {
+    const { svc, add, profileId, profiles } = setup();
+    profiles.updatePreferences(profileId, { ...profiles.get(profileId)!.preferences, salaryMin: 2_000_000, salaryCurrency: 'INR', salaryNegotiable: true }, 70);
+    const r = await svc.evaluate(add(1, 'low', { salaryText: 'INR 600000 - 800000 per year' }), profileId);
+    const stored = t.db.select().from(matches).get()!;
+    expect(r.score).toBeGreaterThan(65);
+    expect(stored.filterReason ?? '').not.toMatch(/salary/i);
+    expect(JSON.stringify(stored.breakdown)).toMatch(/below your expected salary \(negotiable\)/i);
   });
 
   it('the default feed hides skipped jobs', async () => {

@@ -94,10 +94,15 @@ export function PreferencesForm({ profileId, initial, initialSlider }: { profile
             ))}
           </div>
         </fieldset>
-        <label className="flex flex-col gap-1 text-sm">
-          Minimum salary (yearly, optional)
-          <input className={input} type="number" min={0} step="any" value={prefs.salaryMin ?? ''} onChange={(e) => set({ salaryMin: e.target.value === '' ? null : Number(e.target.value) })} />
-        </label>
+        <div className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1">
+            Expected salary / CTC (yearly, optional)
+            <input className={input} type="number" min={0} step="any" value={prefs.salaryMin ?? ''} onChange={(e) => set({ salaryMin: e.target.value === '' ? null : Number(e.target.value) })} />
+          </label>
+          <label className="flex items-center gap-1 text-xs text-neutral-500">
+            <input type="checkbox" checked={!!prefs.salaryNegotiable} onChange={(e) => set({ salaryNegotiable: e.target.checked })} /> Negotiable: also show jobs that pay less (with a note)
+          </label>
+        </div>
         <label className="flex flex-col gap-1 text-sm">
           Currency (3 letters)
           <input className={input} maxLength={3} pattern="[A-Za-z]{3}" title="A 3-letter currency code such as EUR, USD or INR" value={prefs.salaryCurrency ?? ''} placeholder="INR" onChange={(e) => set({ salaryCurrency: e.target.value.trim() ? e.target.value.toUpperCase() : null })} />

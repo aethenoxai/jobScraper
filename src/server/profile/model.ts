@@ -97,8 +97,11 @@ export const PreferencesSchema = z.object({
   remoteScope: z.enum(['none', 'country', 'worldwide']),
   workModes: z.array(z.enum(WORK_MODES)),
   employmentTypes: z.array(z.enum(EMPLOYMENT_TYPES)),
+  /** Expected salary (CTC) per year. Jobs stating less are held back, unless it is negotiable. */
   salaryMin: z.number().min(0).nullable(),
   salaryCurrency: z.string().trim().length(3).nullable(),
+  /** Lower pay is only noted, never held back. Absent in preferences saved before it existed (= not negotiable). */
+  salaryNegotiable: z.boolean().optional(),
   includeKeywords: z.array(Text),
   excludeKeywords: z.array(Text),
   excludedCompanies: z.array(Text),
@@ -117,6 +120,13 @@ export const DEFAULT_PREFERENCES: Preferences = {
   excludeKeywords: [],
   excludedCompanies: [],
 };
+
+/** The expected salary as people write it in an application, e.g. "2,400,000 INR per year (negotiable)". */
+export function formatExpectedSalary(prefs: Pick<Preferences, 'salaryMin' | 'salaryCurrency' | 'salaryNegotiable'>): string | null {
+  if (!prefs.salaryMin) return null;
+  const amount = prefs.salaryMin.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return `${amount}${prefs.salaryCurrency ? ` ${prefs.salaryCurrency}` : ''} per year${prefs.salaryNegotiable ? ' (negotiable)' : ''}`;
+}
 
 export const SLIDER_MIN = 70;
 export const SLIDER_MAX = 200;

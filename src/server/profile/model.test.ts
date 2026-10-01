@@ -4,6 +4,7 @@ import {
   computeYearsOfExperience,
   DEFAULT_PREFERENCES,
   emptyProfile,
+  formatExpectedSalary,
   missingFields,
   PreferencesSchema,
   ProfileDataSchema,
@@ -68,5 +69,23 @@ describe('profile model', () => {
   it('preferences default to a sane, valid configuration', () => {
     expect(PreferencesSchema.parse(DEFAULT_PREFERENCES)).toEqual(DEFAULT_PREFERENCES);
     expect(() => PreferencesSchema.parse({ ...DEFAULT_PREFERENCES, workModes: ['moon'] })).toThrow();
+  });
+});
+
+describe('expected salary', () => {
+  it('older saved preferences (no negotiable flag) still read, as not negotiable', () => {
+    const { salaryNegotiable, ...older } = { ...DEFAULT_PREFERENCES, salaryMin: 1_200_000, salaryCurrency: 'INR' };
+    void salaryNegotiable;
+    const read = PreferencesSchema.parse(older);
+    expect(read.salaryMin).toBe(1_200_000);
+    expect(read.salaryNegotiable ?? false).toBe(false);
+    expect('salaryNegotiable' in read).toBe(false);
+  });
+
+  it('is written out for application answers in the way people write it', () => {
+    expect(formatExpectedSalary({ ...DEFAULT_PREFERENCES, salaryMin: 2_400_000, salaryCurrency: 'INR', salaryNegotiable: true })).toBe('2,400,000 INR per year (negotiable)');
+    expect(formatExpectedSalary({ ...DEFAULT_PREFERENCES, salaryMin: 95_000, salaryCurrency: 'EUR' })).toBe('95,000 EUR per year');
+    expect(formatExpectedSalary({ ...DEFAULT_PREFERENCES, salaryMin: 95_000, salaryCurrency: null })).toBe('95,000 per year');
+    expect(formatExpectedSalary(DEFAULT_PREFERENCES)).toBeNull();
   });
 });

@@ -49,7 +49,7 @@ export class ProfileNotFoundError extends Error {
 }
 
 const ITEM_LABELS: Record<string, string> = { experience: 'Job', education: 'Education', certifications: 'Certificate', skills: 'Skill', projects: 'Project', languages: 'Language', links: 'Link' };
-const FIELD_LABELS: Record<string, string> = { fullName: 'Name', salaryMin: 'Minimum salary', salaryCurrency: 'Currency', url: 'Link' };
+const FIELD_LABELS: Record<string, string> = { fullName: 'Name', salaryMin: 'Expected salary', salaryCurrency: 'Currency', url: 'Link' };
 
 /** "Job 1 (Engineer), start date" for experience.0.startDate: where a problem is, in the words the form uses. */
 export function describeField(path: readonly PropertyKey[], value: unknown): string {

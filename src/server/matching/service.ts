@@ -23,7 +23,7 @@ export class JobClosedError extends Error {
 }
 /** Skip the AI when the offline pre-score is this far below the threshold: it cannot plausibly reach it. */
 const AI_PRESCORE_MARGIN = 25;
-/** Jobs paying below the user's minimum salary are kept below every threshold (shown only in "Filtered out"). */
+/** Jobs paying below the user's expected salary are kept below every threshold (shown only in "Filtered out"), unless the user said it's negotiable. */
 const SALARY_CAP = 65;
 const DAY_MS = 86_400_000;
 const ATS_ADAPTERS = new Set(['greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'manual']);
@@ -46,12 +46,16 @@ export interface EvaluateResult {
 
 const YEAR_FACTOR: Record<string, number> = { year: 1, month: 12, week: 48, day: 230, hour: 2000 };
 
+/** True when the job states a top pay below the user's expected salary (same currency). */
+function paysBelowExpected(job: typeof jobs.$inferSelect, profile: ProfileRecord): boolean {
+  const expected = profile.preferences.salaryMin;
+  if (!expected || !job.salaryMax) return false;
+  if (profile.preferences.salaryCurrency && job.salaryCurrency && profile.preferences.salaryCurrency !== job.salaryCurrency) return false;
+  return job.salaryMax * (YEAR_FACTOR[job.salaryPeriod ?? 'year'] ?? 1) < expected;
+}
+
 function salaryFit(job: typeof jobs.$inferSelect, profile: ProfileRecord): number {
-  const min = profile.preferences.salaryMin;
-  if (!min || !job.salaryMax) return 1;
-  if (profile.preferences.salaryCurrency && job.salaryCurrency && profile.preferences.salaryCurrency !== job.salaryCurrency) return 1;
-  const yearly = job.salaryMax * (YEAR_FACTOR[job.salaryPeriod ?? 'year'] ?? 1);
-  return yearly < min ? 0.3 : 1;
+  return paysBelowExpected(job, profile) && !profile.preferences.salaryNegotiable ? 0.3 : 1;
 }
 
 /** Version of what matching depends on (profile data + preferences, not the slider): a stable 32-bit hash. */
@@ -220,6 +224,8 @@ export function createMatchService(deps: { db: Db; ai: Ai | null; queue: Queue; 
       }
       const gap = postingLanguageGap(description, profile, analysis);
       if (gap) evaluation = { ...evaluation, requirements: [...evaluation.requirements, gap], gaps: [...evaluation.gaps, gap.note!] };
+      // Negotiable: lower pay never holds a job back, but the user should still see it.
+      if (profile.preferences.salaryNegotiable && paysBelowExpected(job, profile)) evaluation = { ...evaluation, gaps: [...evaluation.gaps, 'Pays below your expected salary (negotiable)'] };
       const score = computeScore({ ...base, evaluation });
       const underpaid = base.salaryFit < 1;
       if (underpaid) score.score = Math.min(score.score, SALARY_CAP);
@@ -227,7 +233,7 @@ export function createMatchService(deps: { db: Db; ai: Ai | null; queue: Queue; 
         const d = decide(score.score, sliderValue);
         // Say what held the score down (e.g. a language the profile lacks), not only that it is below the threshold.
         const limit = score.cappedBy && score.capKind === 'requirement' ? ` (limited by: ${score.cappedBy})` : '';
-        return { decision: d.decision, reason: underpaid && d.decision === 'filtered' ? `Pays below your minimum salary (${score.score}%)` : d.reason ? `${d.reason}${limit}` : null };
+        return { decision: d.decision, reason: underpaid && d.decision === 'filtered' ? `Pays below your expected salary (${score.score}%)` : d.reason ? `${d.reason}${limit}` : null };
       };
       return upsert(
         profile,
