@@ -49,6 +49,12 @@ Most sources need no setup and are turned on at first start (Remotive, Remote OK
 
 Web discovery can use your own SearXNG instead (set its address in the source's settings).
 
+Job pages (web discovery, and links you add on *All jobs*) are read with [Scrapling](https://github.com/D4Vinci/Scrapling), a Python library that drives a stealth browser: it renders pages that need JavaScript and gets past bot checks such as Cloudflare's. `robots.txt` (for web discovery) and the list of sites Job Scraper never reads still apply. `pnpm run setup` installs it in `.scrapling/venv`; the *System* page shows whether it is ready.
+
+| Variable | For |
+| --- | --- |
+| `SCRAPLING_PYTHON` | A Python with `scrapling[fetchers]` installed (from `python/requirements.txt`), used instead of `.scrapling/venv`. The Docker image sets it. |
+
 ## Applying by email
 
 See [setup/email.md](setup/email.md) for step-by-step instructions (app passwords, Gmail, Outlook).

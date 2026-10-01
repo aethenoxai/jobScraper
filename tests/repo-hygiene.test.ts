@@ -59,7 +59,8 @@ describe('repo hygiene', () => {
   });
 
   it('every relative link in the published docs points to a file that exists', () => {
-    const docs = tracked().filter((f) => f.endsWith('.md') && !INTERNAL.has(f) && !f.startsWith('docs/superpowers/') && !f.startsWith('.github/'));
+    // .claude/skills holds vendored agent skills (Scrapling's own docs, copied as published upstream): not our docs.
+    const docs = tracked().filter((f) => f.endsWith('.md') && !INTERNAL.has(f) && !f.startsWith('docs/superpowers/') && !f.startsWith('.github/') && !f.startsWith('.claude/skills/'));
     const broken: string[] = [];
     for (const f of docs) {
       for (const m of readFileSync(f, 'utf8').matchAll(/\]\(([^)\s]+)\)/g)) {

@@ -9,12 +9,12 @@ Your own job-search assistant that runs on your computer. It looks for jobs that
 
 ## Quick start
 
-You need Node.js 24 and pnpm 10 (`corepack enable` sets up pnpm). Then:
+You need Node.js 24 and pnpm 10 (`corepack enable` sets up pnpm), plus [uv](https://docs.astral.sh/uv/) or Python 3.10+ for [Scrapling](https://github.com/D4Vinci/Scrapling), which reads job pages. Then:
 
 ```bash
 git clone https://github.com/aethenoxai/jobScraper.git job-scraper && cd job-scraper
 pnpm install
-pnpm run setup      # creates .env and the database, and downloads Chromium (for PDFs)
+pnpm run setup      # creates .env and the database, downloads Chromium (for PDFs) and sets up Scrapling
 pnpm build
 pnpm start          # the web UI and the background worker
 ```
@@ -48,6 +48,7 @@ Stop Job Scraper (Ctrl+C), then in its folder:
 git pull
 pnpm install
 pnpm exec playwright install chromium   # quick when nothing changed
+pnpm run setup                          # updates Scrapling when its version changed (quick otherwise)
 pnpm build
 pnpm start
 ```

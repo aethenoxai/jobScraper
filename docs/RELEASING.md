@@ -27,3 +27,5 @@ This repository has been developed privately. Its history and some files are wor
 4. Tag `v<version>` and push the tag; create a GitHub release with the changelog section.
 
 Database changes ship as new files in `drizzle/`. Never edit a migration that is already in a release.
+
+Upgrading Scrapling: change the version in `python/requirements.txt`, replace `.claude/skills/scrapling-official/` with the `agent-skill/Scrapling-Skill` folder from the same Scrapling tag, and check the helper against that version's API (`python/scrapling_helper.py`: session options, `Response` fields, `_detect_cloudflare`). Run `pytest python/tests` and the integration tests (`pnpm vitest run src/server/scrapling`).

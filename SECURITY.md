@@ -14,7 +14,7 @@ In scope: anything that lets another website, another user on the same computer,
 
 - read or change Job Scraper's data;
 - act as the user (send email, apply, sign in somewhere);
-- or reach the user's network through Job Scraper.
+- or reach the user's network through Job Scraper (for example, a job page that gets the page reader past its guard proxy to this computer or the local network).
 
 The design assumptions are described in [docs/PRIVACY.md](docs/PRIVACY.md) and [docs/CONFIGURATION.md](docs/CONFIGURATION.md#access-from-other-devices):
 

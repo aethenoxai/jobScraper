@@ -47,6 +47,8 @@ With **Sign in with ChatGPT**, the same data goes to OpenAI under your ChatGPT p
 
 Job boards and applicant-tracking systems (Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Recruitee, Remotive, RemoteOK, Arbeitnow, Himalayas, Adzuna) and the optional web search (Brave Search or your SearXNG) receive ordinary web requests. Searches contain only your target job titles, locations and keywords from your preferences. No name, contact details or CV are sent. Adzuna and Brave also receive your API key for that service. Job Scraper never contacts LinkedIn, Indeed, Glassdoor, Naukri and similar sites.
 
+Job pages that web discovery finds, and links you add, are opened with Scrapling's stealth browser. To the site it looks like an ordinary Chrome visit from your internet connection (it doesn't say it is Job Scraper, and it gets past bot checks such as Cloudflare's). It receives nothing about you: no name, CV or cookies from your own browser, and it starts with no saved sign-ins. Its traffic goes through a small proxy inside Job Scraper that only lets it reach public websites, never your computer or local network. The Python helper that runs it gets none of the keys and passwords in your `.env`.
+
 ### Applying by email (SMTP, Gmail or Outlook)
 
 Your mail provider sends the application you approved: the recipient from the job posting, the subject, the cover letter text, your name and contact details, the tailored CV PDF and optionally the cover letter PDF. The employer receives that email. Nothing is sent without your click on "Send".

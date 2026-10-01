@@ -22,6 +22,7 @@ An adapter implements `JobSourceAdapter` from `src/server/sources/types.ts`:
 
 - `config`: the validated configuration;
 - `http`: the shared HTTP client (timeouts, retries, polite pacing, private-address protection, `Retry-After`);
+- `pages`: the page reader, for adapters that read web pages rather than an API (web discovery). It drives Scrapling's stealth browser through a guard proxy that refuses this computer, the local network and the never-read sites. `pages.fetchPage(url, { signal })` returns `{ html, finalUrl, status }` or throws `PageFetchError` (`NOT_INSTALLED`, `REFUSED`, `BLOCKED`, `TIMEOUT`, `HTTP_ERROR`, `HELPER_FAILED`). It is missing when Scrapling isn't set up: fail with `SourceError('SOURCE_CONFIG', SCRAPLING_MISSING)`;
 - `signal`: stop when it fires;
 - `hints`: the titles, locations and keywords users are looking for, for sources that can search;
 - `knownIds`: ids already stored, to skip re-fetching details;
@@ -39,9 +40,9 @@ The schema is `RawListingSchema`. Invalid listings are counted as unreadable and
 
 ## Rules
 
-- Use the source's **official API or published job data** (JSON feeds, schema.org `JobPosting`). Don't bypass logins, CAPTCHAs, rate limits or `robots.txt`.
+- Use the source's **official API or published job data** (JSON feeds, schema.org `JobPosting`) where there is one. Don't bypass logins, rate limits or `robots.txt`.
 - Never add LinkedIn, Indeed, Glassdoor and similar sites; their terms forbid automated access.
-- Always use `ctx.http` (never `fetch` directly). It enforces timeouts, pacing and the private-network guard.
+- Always use `ctx.http` for APIs and `ctx.pages` for web pages (never `fetch` directly). They enforce timeouts, pacing and the private-network guard. Only `ctx.pages` gets past bot checks; check `robots.txt` before reading a page you found yourself (see `pageGuard` in `discovery/web.ts`).
 - Throw `SourceError` (`SOURCE_UNAVAILABLE`, `SOURCE_CONFIG`, `SOURCE_PARSE`, `SOURCE_BLOCKED`, `SOURCE_RATE_LIMITED`) for problems the user should see. `guarded()` in `adapters/shared.ts` converts HTTP errors for you.
 - Keep requests bounded: page sizes, page limits, and stop early when `knownIds` shows you've reached jobs you already have.
 
