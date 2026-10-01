@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createHttpClient, HttpError, isAllowedByRobots, isPublicHttpUrl, parseRetryAfter, parseRobots, resolvesToPublicAddress } from './index';
+import { createHttpClient, HttpError, isAllowedByRobots, isPrivateAddress, isPublicHttpUrl, parseRetryAfter, parseRobots, resolvesToPublicAddress } from './index';
 
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>;
 function fakeFetch(handler: Handler) {
@@ -161,4 +163,10 @@ describe('robots.txt fetch safety', () => {
     expect(f.calls.some((c) => c.url.includes('127.0.0.1'))).toBe(false);
     expect(await http.allowedByRobots('https://busy.example/job')).toBe(false);
   });
+});
+
+describe('shared private-address verdicts (also read by python/tests/test_guard.py)', () => {
+  const table = JSON.parse(readFileSync(path.resolve('src/server/http/private-addresses.json'), 'utf8')) as { private: string[]; public: string[] };
+  it.each(table.private)('%s is private', (ip) => expect(isPrivateAddress(ip)).toBe(true));
+  it.each(table.public)('%s is public', (ip) => expect(isPrivateAddress(ip)).toBe(false));
 });
