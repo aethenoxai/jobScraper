@@ -135,15 +135,17 @@ def test_refuses_private_never_read_and_unresolvable_hosts(target, addresses, re
         port = await proxy.start()
         try:
             status, _ = await proxy_request(port, f"CONNECT {target} HTTP/1.1\r\n{auth(proxy)}\r\n".encode())
-            return status, dict(proxy.refused)
+            return status, dict(proxy.refused), list(proxy.log)
         finally:
             await proxy.close()
 
-    status, refused = run(scenario())
+    status, refused, log = run(scenario())
     assert status.startswith("HTTP/1.1 403")
     assert connected == []
     host = target.rsplit(":", 1)[0].strip("[]")
     assert reason in refused[host]
+    # In order, so the helper can tell which refusals happened while a given page loaded.
+    assert log == [(host, refused[host])]
 
 
 def test_refuses_plain_http_requests():

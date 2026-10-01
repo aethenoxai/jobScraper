@@ -69,8 +69,10 @@ class GuardProxy:
         self.allow_private = allow_private
         self.username = secrets.token_urlsafe(18)
         self.password = secrets.token_urlsafe(18)
-        # Host → why it was refused; the helper reads it to explain a failed page.
+        # Host → why it was refused, and every refusal in order: the helper reads them to explain a failed page.
         self.refused: dict[str, str] = {}
+        self.log: list[tuple[str, str]] = []
+        self.total = 0
         self._server: Optional[asyncio.base_events.Server] = None
         self._writers: set[asyncio.StreamWriter] = set()
 
@@ -129,14 +131,14 @@ class GuardProxy:
             await self._reply(writer, '407 Proxy Authentication Required', 'Proxy-Authenticate: Basic realm="job-scraper"\r\n')
             return
         if method.upper() != "CONNECT":
-            self.refused[urlsplit(target).hostname or target] = "only https pages are read"
+            self._refuse(urlsplit(target).hostname or target, "only https pages are read")
             await self._reply(writer, "405 Method Not Allowed")
             return
 
         host, port = _split_target(target)
         address, reason = await self._check(host, port)
         if reason:
-            self.refused[host] = reason
+            self._refuse(host, reason)
             await self._reply(writer, "403 Forbidden")
             return
         try:
@@ -152,6 +154,18 @@ class GuardProxy:
         finally:
             self._writers.discard(up_writer)
             up_writer.close()
+
+    def _refuse(self, host: str, reason: str) -> None:
+        self.refused[host] = reason
+        self.log.append((host, reason))
+        self.total += 1
+        if len(self.log) > 500:
+            del self.log[:100]
+
+    def refusals_since(self, mark: int) -> list[tuple[str, str]]:
+        """Refusals after `mark` (a value of `total` read earlier)."""
+        n = self.total - mark
+        return self.log[-n:] if n > 0 else []
 
     @staticmethod
     async def _reply(writer: asyncio.StreamWriter, status: str, extra: str = "") -> None:
