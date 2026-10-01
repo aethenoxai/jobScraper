@@ -53,7 +53,7 @@ Job pages (web discovery, and links you add on *All jobs*) are read with [Scrapl
 
 | Variable | For |
 | --- | --- |
-| `SCRAPLING_PYTHON` | A Python with `scrapling[fetchers]` installed (from `python/requirements.txt`), used instead of `.scrapling/venv`. The Docker image sets it. |
+| `SCRAPLING_PYTHON` | The absolute path of a Python with `python/requirements.txt` installed, used instead of `.scrapling/venv`. The Docker image sets it. |
 
 ## Applying by email
 

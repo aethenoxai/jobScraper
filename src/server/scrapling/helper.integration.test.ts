@@ -3,8 +3,12 @@
  * installs it). Proves that pages built by JavaScript are read, and that with the guard proxy on nothing reaches
  * this machine, not even through the browser's loopback shortcut.
  */
-import { existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { extractJobPostings } from '../discovery/jsonld';
@@ -62,4 +66,25 @@ describe.skipIf(!existsSync(scraplingPython(process.env)))('Scrapling helper (re
     }
     expect(hits).toBe(0);
   }, 300_000);
+
+  it('does not read a page whose certificate is not valid (a tampered connection)', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'scrapling-cert-'));
+    try {
+      execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(dir, 'key.pem'), '-out', path.join(dir, 'cert.pem'), '-days', '1', '-subj', '/CN=127.0.0.1'], { stdio: 'ignore' });
+      const tls = createHttpsServer({ key: readFileSync(path.join(dir, 'key.pem')), cert: readFileSync(path.join(dir, 'cert.pem')) }, (req, res) => res.writeHead(200, { 'content-type': 'text/html' }).end(page));
+      await new Promise<void>((r) => tls.listen(0, '127.0.0.1', r));
+      try {
+        // Guard off (allow-private mode) so the local test server is reachable at all; only the certificate is wrong.
+        const { pages, client } = createScraplingPages({ env: { ...process.env, JOB_SCRAPER_ALLOW_PRIVATE_URLS: 'true' }, log });
+        clients.push(client);
+        const err = await pages.fetchPage(`https://127.0.0.1:${(tls.address() as AddressInfo).port}/jobs/nurse`, { signal: AbortSignal.timeout(110_000) }).catch((e: unknown) => e);
+        expect(isPageFetchError(err) ? err.code : err).toBe('HTTP_ERROR');
+        expect((err as Error).message).toMatch(/CERT/);
+      } finally {
+        await new Promise((r) => tls.close(r));
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120_000);
 });

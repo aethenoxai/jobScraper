@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { collect, fixtureHttp, fixturePages } from '../sources/testing/contract';
+import type { Ai } from '../ai';
 import { SourceError } from '../sources/types';
 import { planQueries, web } from './web';
 
@@ -132,6 +133,27 @@ describe('web discovery reads pages with Scrapling', () => {
     expect((err as SourceError).code).toBe('SOURCE_UNAVAILABLE');
   });
 
+  it('does not start the AI fallback once the run’s time budget is used up (the scan would drop the whole run)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const results = { web: { results: [{ url: 'https://a.test/1', title: 'a' }] } };
+      const http = fixtureHttp(site({ 'api.search.brave.com': results, 'robots.txt': '', 'a.test/1': '<html><body>Senior Backend Engineer at Tiny Startup</body></html>' }));
+      const inner = fixturePages(http);
+      const pages = {
+        fetchPage: async (url: string, opts: { signal: AbortSignal }) => {
+          vi.setSystemTime(Date.now() + 5 * 60_000); // the page took the rest of the budget
+          return inner.fetchPage(url, opts);
+        },
+      };
+      const asked: string[] = [];
+      const ai = { status: () => ({ configured: true }), generateObject: async (o: { prompt: string }) => (asked.push(o.prompt), { isSingleJobPosting: false, title: null, company: null, location: null }) } as unknown as Ai;
+      await collect(web, config, http, { env, hints, pages, ai });
+      expect(asked).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('stops reading new pages when the run’s time budget is used up', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     try {
@@ -145,8 +167,12 @@ describe('web discovery reads pages with Scrapling', () => {
           return inner.fetchPage(url, opts);
         },
       };
-      await collect(web, config, http, { env, hints, pages });
+      const seen: string[] = [];
+      const http2 = fixtureHttp(site({ 'api.search.brave.com': results, 'robots.txt': '' }), seen);
+      await collect(web, { ...config, maxQueries: 2 }, http2, { env, hints: { ...hints, titles: ['Backend Engineer', 'Go Developer'] }, pages: { fetchPage: pages.fetchPage } });
       expect(inner.calls).toEqual(['https://a.test/1']);
+      // The second search waits for the next run too.
+      expect(seen.filter((u) => u.includes('api.search.brave.com'))).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }

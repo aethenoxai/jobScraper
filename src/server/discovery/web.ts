@@ -16,8 +16,11 @@ export interface SearchResult {
 
 /** Sites whose terms or anti-bot measures rule out automated fetching; their jobs arrive via "Add job by URL". */
 export { NEVER_FETCH };
-/** Pages are read until this much of the run has passed, so a run stays inside the scan's per-source limit (5 min). */
-const READ_BUDGET_MS = 4 * 60_000;
+/**
+ * Pages are read (and the AI fallback started) until this much of the run has passed, so that with a last page
+ * (≤ 90 s) and its AI call (≤ 60 s) a run stays inside the scan's per-source limit (5 min).
+ */
+const READ_BUDGET_MS = 3.5 * 60_000;
 const PAGE_TIMEOUT_MS = 90_000;
 const MAX_PAGE_BYTES = 3 * 1024 * 1024;
 
@@ -134,6 +137,8 @@ export const web: JobSourceAdapter<WebConfig> = {
     let helperFailures = 0;
     const deadline = Date.now() + READ_BUDGET_MS;
     for (const q of queries) {
+      // The rest of the searches (and their quota) wait for the next run.
+      if (Date.now() >= deadline) break;
       let results: SearchResult[];
       try {
         results = await search(config, q, http, env, signal);
@@ -175,7 +180,8 @@ export const web: JobSourceAdapter<WebConfig> = {
           const postings = extractJobPostings(page.html, page.finalUrl || r.url);
           if (postings.length) {
             yield* postings;
-          } else if (ai?.status().configured) {
+          } else if (ai?.status().configured && Date.now() < deadline) {
+            // Not after the budget: the AI call (up to a minute) could push the run past the scan's limit.
             const listing = await aiExtractJob(ai, htmlToText(page.html), page.finalUrl || r.url);
             if (listing) yield listing;
           }

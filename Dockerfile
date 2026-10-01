@@ -29,7 +29,7 @@ COPY --from=build /app/python/requirements.txt /tmp/scrapling-requirements.txt
 RUN apt-get update && apt-get install -y --no-install-recommends python3-venv \
   && python3 -m venv /opt/scrapling \
   && /opt/scrapling/bin/pip install --no-cache-dir -r /tmp/scrapling-requirements.txt \
-  && /opt/scrapling/bin/python -m playwright install --with-deps chromium \
+  && /opt/scrapling/bin/python -m patchright install --with-deps chromium \
   && rm -rf /var/lib/apt/lists/* /tmp/scrapling-requirements.txt \
   && chmod -R a+rX /opt/scrapling /ms-playwright
 ENV SCRAPLING_PYTHON=/opt/scrapling/bin/python

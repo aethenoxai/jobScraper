@@ -33,7 +33,8 @@ export function planScraplingInstall(opts: { env: Record<string, string | undefi
   const venv = path.join(root, '.scrapling', 'venv');
   const python = scraplingPython({}, root);
   const requirements = path.join(root, 'python', 'requirements.txt');
-  const browser = { cmd: python, args: ['-m', 'playwright', 'install', 'chromium'] };
+  // Scrapling launches its browser with Patchright (pinned to the same version as Playwright in the lock).
+  const browser = { cmd: python, args: ['-m', 'patchright', 'install', 'chromium'] };
   const fresh = !probe.exists(python);
   if (probe.has('uv')) {
     return {

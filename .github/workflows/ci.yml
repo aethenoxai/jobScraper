@@ -32,8 +32,9 @@ jobs:
       - name: Install Scrapling
         run: |
           python -m venv .scrapling/venv
-          .scrapling/venv/bin/pip install -r python/requirements.txt pytest
-          .scrapling/venv/bin/python -m playwright install --with-deps chromium
+          .scrapling/venv/bin/pip install -r python/requirements.txt
+          .scrapling/venv/bin/pip install pytest
+          .scrapling/venv/bin/python -m patchright install --with-deps chromium
       - run: .scrapling/venv/bin/pytest -q python/tests
       - run: pnpm test
       - name: Quality gates (offline evals)

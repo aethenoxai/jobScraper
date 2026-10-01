@@ -4,14 +4,14 @@ export const PASTED_URL = 'https://job-scraper.local/pasted';
 /** Whether a job's address leads anywhere (false for jobs pasted without a link). */
 export const hasRealLink = (url: string | null | undefined): url is string => !!url && !url.startsWith(PASTED_URL);
 
-/** Sites Job Scraper never reads or automates (their terms forbid it, or they block automation). */
-export const NEVER_FETCH = /(^|\.)(linkedin\.com|indeed\.[a-z.]+|glassdoor\.[a-z.]+|naukri\.com|monster\.[a-z.]+|ziprecruiter\.com|simplyhired\.[a-z.]+|foundit\.in|shine\.com|facebook\.com|x\.com|twitter\.com)$/i;
+/** Sites Job Scraper never reads or automates (their terms forbid it, or they block automation). A trailing dot ("linkedin.com.") is the same site. */
+export const NEVER_FETCH = /(^|\.)(linkedin\.com|indeed\.[a-z.]+|glassdoor\.[a-z.]+|naukri\.com|monster\.[a-z.]+|ziprecruiter\.com|simplyhired\.[a-z.]+|foundit\.in|shine\.com|facebook\.com|x\.com|twitter\.com)\.?$/i;
 
 /** The site's name ("linkedin.com") when Job Scraper won't apply there for the user, otherwise null. */
 export function notAutomated(url: string | null | undefined): string | null {
   if (!hasRealLink(url) || !URL.canParse(url)) return null;
   const host = new URL(url).hostname;
-  return NEVER_FETCH.test(host) ? host.replace(/^www\./, '') : null;
+  return NEVER_FETCH.test(host) ? host.replace(/^www\./, '').replace(/\.$/, '') : null;
 }
 
 /** The source that holds jobs the user added by link or pasted. */

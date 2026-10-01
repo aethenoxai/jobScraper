@@ -74,8 +74,14 @@ class Resp:
         self.status, self.url, self.body = status, url, body
 
 class AsyncStealthySession:
+    instances = 0
+    killed = False
+
     def __init__(self, **kw):
         self.kw = kw
+        AsyncStealthySession.instances += 1
+        self.number = AsyncStealthySession.instances
+        self.alive = True
 
     @staticmethod
     def _detect_cloudflare(html):
@@ -89,6 +95,14 @@ class AsyncStealthySession:
         pass
 
     async def fetch(self, url, **kw):
+        if not self.alive:
+            raise RuntimeError("Page.goto: Target page, context or browser has been closed")
+        if "kill-browser" in url and not AsyncStealthySession.killed:
+            AsyncStealthySession.killed = True
+            self.alive = False
+            raise RuntimeError("Page.goto: Target page, context or browser has been closed")
+        if "instance" in url:
+            return Resp(200, url, f"instance {self.number}".encode())
         if "slow" in url:
             await asyncio.sleep(3600)
         if "boom" in url:
@@ -200,4 +214,26 @@ def test_without_the_guard_there_is_no_proxy(stub):
     h.read()
     h.send({"id": 1, "method": "fetch_page", "params": {"url": "https://kwargs.example/"}})
     assert "proxy" not in json.loads(h.read()["result"]["html"])
+    h.finish()
+
+
+def test_a_crashed_browser_is_started_again(stub):
+    h = Helper(stub, JOB_SCRAPER_GUARD="off")
+    h.read()
+    # The browser dies during this page: the helper starts a new one and reads the page there.
+    h.send({"id": 1, "method": "fetch_page", "params": {"url": "https://jobs.example/kill-browser/instance"}})
+    first = h.read()
+    h.send({"id": 2, "method": "fetch_page", "params": {"url": "https://jobs.example/instance"}})
+    second = h.read()
+    assert first["ok"] is True and first["result"]["html"] == "instance 2"
+    assert second["ok"] is True and second["result"]["html"] == "instance 2"
+    h.finish()
+
+
+def test_certificate_errors_are_not_ignored(stub):
+    # Scrapling's stealth context ignores HTTPS certificate errors by default; job pages must be the real ones.
+    h = Helper(stub, JOB_SCRAPER_GUARD="off")
+    h.read()
+    h.send({"id": 1, "method": "fetch_page", "params": {"url": "https://kwargs.example/"}})
+    assert json.loads(h.read()["result"]["html"])["additional_args"] == {"ignore_https_errors": False}
     h.finish()

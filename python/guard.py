@@ -20,6 +20,7 @@ Connector = Callable[[str, int], Awaitable[tuple]]
 
 HEAD_LIMIT = 16 * 1024
 HEAD_TIMEOUT_S = 30
+CONNECT_TIMEOUT_S = 10
 
 
 def is_private_address(address: str) -> bool:
@@ -62,11 +63,13 @@ class GuardProxy:
         resolver: Optional[Resolver] = None,
         connect: Optional[Connector] = None,
         allow_private: bool = False,
+        connect_timeout: float = CONNECT_TIMEOUT_S,
     ):
         self.never_fetch = never_fetch
         self.resolver = resolver or _default_resolver
         self.connect = connect or _default_connect
         self.allow_private = allow_private
+        self.connect_timeout = connect_timeout
         self.username = secrets.token_urlsafe(18)
         self.password = secrets.token_urlsafe(18)
         # Host → why it was refused, and every refusal in order: the helper reads them to explain a failed page.
@@ -97,19 +100,28 @@ class GuardProxy:
             return False
         return secrets.compare_digest(given, f"{self.username}:{self.password}")
 
-    async def _check(self, host: str, port: int) -> tuple[Optional[str], Optional[str]]:
-        """The address to connect to, or why the host is refused."""
+    async def _check(self, host: str, port: int) -> tuple[list, Optional[str]]:
+        """The checked addresses to connect to (in order), or why the host is refused."""
         if self.never_fetch.search(host):
-            return None, "a site Job Scraper never reads"
+            return [], "a site Job Scraper never reads"
         try:
             addresses = await self.resolver(host, port)
         except OSError:
             addresses = []
         if not addresses:
-            return None, "could not resolve the site's address"
+            return [], "could not resolve the site's address"
         if not self.allow_private and any(is_private_address(a) for a in addresses):
-            return None, "a private network address"
-        return addresses[0], None
+            return [], "a private network address"
+        return list(dict.fromkeys(addresses)), None
+
+    async def _dial(self, addresses: list, port: int) -> Optional[tuple]:
+        """Connects to the first checked address that answers (an IPv6 answer may be unreachable, e.g. in Docker)."""
+        for address in addresses:
+            try:
+                return await asyncio.wait_for(self.connect(address, port), self.connect_timeout)
+            except (OSError, asyncio.TimeoutError):
+                continue
+        return None
 
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self._writers.add(writer)
@@ -136,16 +148,18 @@ class GuardProxy:
             return
 
         host, port = _split_target(target)
-        address, reason = await self._check(host, port)
+        # "www.linkedin.com." is the same site as "www.linkedin.com".
+        host = host.rstrip(".") or host
+        addresses, reason = await self._check(host, port)
         if reason:
             self._refuse(host, reason)
             await self._reply(writer, "403 Forbidden")
             return
-        try:
-            up_reader, up_writer = await self.connect(address, port)
-        except OSError:
+        upstream = await self._dial(addresses, port)
+        if upstream is None:
             await self._reply(writer, "502 Bad Gateway")
             return
+        up_reader, up_writer = upstream
         self._writers.add(up_writer)
         writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
         await writer.drain()

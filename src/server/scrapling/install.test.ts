@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { planScraplingInstall, type InstallProbe } from './install';
@@ -24,7 +25,7 @@ describe('planScraplingInstall', () => {
       steps: [
         { cmd: 'uv', args: ['venv', '--python', '3.12', path.join(root, '.scrapling', 'venv')] },
         { cmd: 'uv', args: ['pip', 'install', '--python', venvPython, '-r', requirements] },
-        { cmd: venvPython, args: ['-m', 'playwright', 'install', 'chromium'] },
+        { cmd: venvPython, args: ['-m', 'patchright', 'install', 'chromium'] },
       ],
     });
   });
@@ -43,7 +44,7 @@ describe('planScraplingInstall', () => {
       steps: [
         { cmd: 'python3.11', args: ['-m', 'venv', path.join(root, '.scrapling', 'venv')] },
         { cmd: venvPython, args: ['-m', 'pip', 'install', '-r', requirements] },
-        { cmd: venvPython, args: ['-m', 'playwright', 'install', 'chromium'] },
+        { cmd: venvPython, args: ['-m', 'patchright', 'install', 'chromium'] },
       ],
     });
   });
@@ -55,3 +56,21 @@ describe('planScraplingInstall', () => {
     expect(plan.kind === 'missing' && plan.error).toMatch(/3\.10/);
   });
 });
+
+describe('python/requirements.txt', () => {
+  const lines = readFileSync('python/requirements.txt', 'utf8').split('\n');
+  const pins = new Map(lines.map((l) => l.match(/^([a-z0-9._-]+)(?:\[[^\]]*\])?==([^\s;\\]+)/i)).filter((m): m is RegExpMatchArray => !!m).map((m) => [m[1].toLowerCase(), m[2]]));
+
+  it('pins Scrapling and every package it pulls in, with hashes (the same install everywhere)', () => {
+    expect(pins.get('scrapling')).toBe('0.4.15');
+    expect(pins.size).toBeGreaterThan(5);
+    const unhashed = lines.filter((l, i) => /^[a-z0-9]/i.test(l) && !lines[i + 1]?.trim().startsWith('--hash'));
+    expect(unhashed).toEqual([]);
+  });
+
+  it('keeps Playwright and Patchright on the same version: the browser is downloaded once for both', () => {
+    expect(pins.get('patchright')).toBeDefined();
+    expect(pins.get('patchright')).toBe(pins.get('playwright'));
+  });
+});
+

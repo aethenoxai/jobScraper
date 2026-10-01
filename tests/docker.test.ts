@@ -38,7 +38,7 @@ describe('Docker setup', () => {
   it('ships Scrapling (Python) for reading job pages, in its own environment outside the app folder', () => {
     expect(dockerfile).toMatch(/python3 -m venv \/opt\/scrapling/);
     expect(dockerfile).toMatch(/\/opt\/scrapling\/bin\/pip install[^\n]*-r \/tmp\/scrapling-requirements\.txt/);
-    expect(dockerfile).toMatch(/\/opt\/scrapling\/bin\/python -m playwright install --with-deps chromium/);
+    expect(dockerfile).toMatch(/\/opt\/scrapling\/bin\/python -m patchright install --with-deps chromium/);
     expect(dockerfile).toMatch(/^ENV SCRAPLING_PYTHON=\/opt\/scrapling\/bin\/python$/m);
     expect(dockerfile).toMatch(/chmod -R a\+rX \/opt\/scrapling \/ms-playwright/);
     expect(ignore).toContain('.scrapling');

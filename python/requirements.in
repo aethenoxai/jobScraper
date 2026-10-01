@@ -1,0 +1,5 @@
+# What Job Scraper needs from Python. `requirements.txt` is generated from this file (see docs/RELEASING.md).
+scrapling[fetchers]==0.4.15
+# Scrapling launches the browser with Patchright; keep Playwright on the same version so one browser download serves both.
+patchright==1.63.0
+playwright==1.63.0

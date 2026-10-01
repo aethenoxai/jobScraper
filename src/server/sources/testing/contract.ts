@@ -1,3 +1,4 @@
+import type { Ai } from '../../ai';
 import { createHttpClient, type HttpClient, type Lookup } from '../../http';
 import { createLogger } from '../../logging';
 import { PageFetchError, type PageFetchCode } from '../../scrapling/client';
@@ -44,7 +45,7 @@ export async function collect<C>(
   adapter: JobSourceAdapter<C>,
   config: C,
   http: HttpClient,
-  extra: { knownIds?: Set<string>; hints?: Partial<SourceHints>; env?: Record<string, string>; registerSource?: (adapterId: string, name: string, config: Record<string, unknown>) => void; lookup?: Lookup; pages?: PageFetcher | null; signal?: AbortSignal } = {},
+  extra: { knownIds?: Set<string>; hints?: Partial<SourceHints>; env?: Record<string, string>; registerSource?: (adapterId: string, name: string, config: Record<string, unknown>) => void; lookup?: Lookup; pages?: PageFetcher | null; signal?: AbortSignal; ai?: Ai | null } = {},
 ): Promise<RawListing[]> {
   const out: RawListing[] = [];
   for await (const l of adapter.fetch({
@@ -55,7 +56,7 @@ export async function collect<C>(
     hints: { titles: [], locations: [], keywords: [], ...extra.hints },
     knownIds: extra.knownIds ?? new Set(),
     env: extra.env ?? {},
-    ai: null,
+    ai: extra.ai ?? null,
     registerSource: extra.registerSource,
     lookup: extra.lookup ?? (async () => [{ address: '93.184.216.34', family: 4 }]),
     pages: extra.pages === null ? undefined : (extra.pages ?? fixturePages(http)),

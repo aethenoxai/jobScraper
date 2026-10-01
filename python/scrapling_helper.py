@@ -28,6 +28,8 @@ DEFAULT_TIMEOUT_MS = 60_000  # Scrapling's minimum while solving Cloudflare chal
 DEFAULT_MAX_BYTES = 3 * MB
 BLOCKING_CHALLENGES = ("non-interactive", "managed", "interactive")
 PROXY_FAILURES = ("ERR_TUNNEL_CONNECTION_FAILED", "ERR_PROXY", "ERR_HTTP_RESPONSE_CODE_FAILURE", "ERR_EMPTY_RESPONSE")
+# Playwright's wording when the browser (or its context) died under us.
+BROWSER_GONE = re.compile(r"has been closed|Target closed|browser has disconnected|Connection closed", re.I)
 
 
 class PageError(Exception):
@@ -78,7 +80,18 @@ class Helper:
     async def session(self):
         async with self._lock:
             if self._session is None:
-                options = dict(headless=True, solve_cloudflare=True, block_ads=True, network_idle=True, block_webrtc=True, retries=1, max_pages=2, timeout=DEFAULT_TIMEOUT_MS)
+                options = dict(
+                    headless=True,
+                    solve_cloudflare=True,
+                    block_ads=True,
+                    network_idle=True,
+                    block_webrtc=True,
+                    retries=1,
+                    max_pages=2,
+                    timeout=DEFAULT_TIMEOUT_MS,
+                    # Scrapling's stealth context ignores certificate errors; job pages must be the real ones.
+                    additional_args={"ignore_https_errors": False},
+                )
                 if self.guard_on and self.guard is None:
                     from guard import GuardProxy
 
@@ -90,6 +103,17 @@ class Helper:
                 await session.start()
                 self._session = session
             return self._session
+
+    async def _drop_session(self, dead) -> None:
+        """Forgets a session whose browser died, so the next page starts a new browser."""
+        async with self._lock:
+            if self._session is not dead:
+                return
+            self._session = None
+        try:
+            await asyncio.wait_for(dead.close(), 10)
+        except Exception:
+            pass
 
     def _refusals(self, hosts: list, mark: int) -> tuple:
         if self.guard is None:
@@ -105,9 +129,16 @@ class Helper:
         host = urlsplit(url).hostname or ""
         mark = self.guard.total if self.guard else 0
         try:
-            session = await self.session()
-            mark = self.guard.total if self.guard else 0
-            page = await asyncio.wait_for(session.fetch(url, timeout=timeout_ms), timeout_ms * 2 / 1000)
+            for attempt in range(2):
+                session = await self.session()
+                mark = self.guard.total if self.guard else 0
+                try:
+                    page = await asyncio.wait_for(session.fetch(url, timeout=timeout_ms), timeout_ms * 2 / 1000)
+                    break
+                except Exception as e:
+                    if attempt or not BROWSER_GONE.search(str(e)):
+                        raise
+                    await self._drop_session(session)
         except asyncio.TimeoutError:
             raise PageError("TIMEOUT", f"The page didn't finish loading within {timeout_ms * 2 // 1000} seconds.")
         except Exception as e:  # Playwright/Scrapling errors carry the reason in their text

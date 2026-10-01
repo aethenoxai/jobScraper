@@ -57,13 +57,20 @@ def auth(proxy):
     return f"Proxy-Authorization: Basic {token}\r\n"
 
 
-def make_proxy(addresses, connected=None, echo_port=None, **kw):
+def make_proxy(addresses, connected=None, echo_port=None, failing=(), hanging=(), lookups=None, **kw):
     async def resolver(host, port):
-        return addresses[host]
+        if lookups is not None:
+            lookups.append(host)
+        answer = addresses[host]
+        return answer(len(lookups or [])) if callable(answer) else answer
 
     async def connect(ip, port):
         if connected is not None:
             connected.append((ip, port))
+        if ip in failing:
+            raise OSError("network is unreachable")
+        if ip in hanging:
+            await asyncio.sleep(3600)
         return await asyncio.open_connection("127.0.0.1", echo_port)
 
     return GuardProxy(NEVER_FETCH, resolver=resolver, connect=connect, **kw)
@@ -99,11 +106,13 @@ def test_refuses_wrong_credentials():
 
 def test_tunnels_to_the_address_it_checked():
     connected = []
+    lookups = []
 
     async def scenario():
         server, echo_port = await echo_server()
-        # The second lookup would say "private" (DNS rebinding); only the first, checked answer may be used.
-        proxy = make_proxy({"jobs.example": ["93.184.216.34"]}, connected=connected, echo_port=echo_port)
+        # A second lookup would say "private" (DNS rebinding): the host is looked up once, and only that checked answer is used.
+        answers = lambda n: ["93.184.216.34"] if n <= 1 else ["127.0.0.1"]
+        proxy = make_proxy({"jobs.example": answers}, connected=connected, echo_port=echo_port, lookups=lookups)
         port = await proxy.start()
         try:
             return await proxy_request(port, f"CONNECT jobs.example:443 HTTP/1.1\r\n{auth(proxy)}\r\n".encode(), b"hello")
@@ -115,6 +124,43 @@ def test_tunnels_to_the_address_it_checked():
     assert status.startswith("HTTP/1.1 200")
     assert body == b"echo:hello"
     assert connected == [("93.184.216.34", 443)]
+    assert lookups == ["jobs.example"]
+
+
+def test_tries_the_next_checked_address_when_one_cannot_be_reached():
+    # E.g. an IPv6 answer first on a network (or Docker) without IPv6, or an address that never answers.
+    connected = []
+
+    async def scenario():
+        server, echo_port = await echo_server()
+        addresses = {"jobs.example": ["2606:4700::6810:84e5", "2606:4700::6810:85e5", "104.16.132.229"]}
+        proxy = make_proxy(addresses, connected=connected, echo_port=echo_port, failing={"2606:4700::6810:84e5"}, hanging={"2606:4700::6810:85e5"}, connect_timeout=0.2)
+        port = await proxy.start()
+        try:
+            return await proxy_request(port, f"CONNECT jobs.example:443 HTTP/1.1\r\n{auth(proxy)}\r\n".encode(), b"hi")
+        finally:
+            await proxy.close()
+            server.close()
+
+    status, body = run(scenario())
+    assert status.startswith("HTTP/1.1 200")
+    assert body == b"echo:hi"
+    assert [ip for ip, _ in connected] == ["2606:4700::6810:84e5", "2606:4700::6810:85e5", "104.16.132.229"]
+
+
+def test_a_trailing_dot_does_not_get_past_the_never_read_list():
+    async def scenario():
+        proxy = make_proxy({"www.linkedin.com.": ["13.107.42.14"]})
+        port = await proxy.start()
+        try:
+            status, _ = await proxy_request(port, f"CONNECT www.linkedin.com.:443 HTTP/1.1\r\n{auth(proxy)}\r\n".encode())
+            return status, dict(proxy.refused)
+        finally:
+            await proxy.close()
+
+    status, refused = run(scenario())
+    assert status.startswith("HTTP/1.1 403")
+    assert "never" in refused["www.linkedin.com"]
 
 
 @pytest.mark.parametrize(
