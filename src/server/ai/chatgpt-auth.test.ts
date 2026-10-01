@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
 import { scrubSecrets } from '../logging';
 import { createSettings } from '../settings';
-import { chatGptAccessToken, chatGptAccount, disconnectChatGpt, finishChatGptSignIn, startChatGptSignIn } from './chatgpt-auth';
+import { chatGptAccessToken, chatGptAccount, chatGptModelIds, chatGptReturnAddress, disconnectChatGpt, finishChatGptSignIn, startChatGptSignIn } from './chatgpt-auth';
 
 let t: ReturnType<typeof createTempDb>;
 beforeEach(() => (t = createTempDb()));
@@ -168,5 +168,61 @@ describe('Sign in with ChatGPT (OpenAI’s program for open-source local apps)',
     disconnectChatGpt(settings);
     expect(chatGptAccount(settings)).toBeNull();
     await expect(chatGptAccessToken(settings, tokenEndpoint(() => ({ json: {} })).fetchImpl, now)).rejects.toThrow(/sign in with chatgpt/i);
+  });
+
+  it('refreshes only once when several calls need a new token at the same moment', async () => {
+    const settings = await signedIn();
+    clock = new Date(clock.getTime() + 59 * 60_000);
+    let resolveReply!: () => void;
+    const gate = new Promise<void>((r) => (resolveReply = r));
+    const calls: string[] = [];
+    const slow = (async (_url: string | URL, init?: RequestInit) => {
+      calls.push(String(init?.body));
+      await gate;
+      return new Response(JSON.stringify({ access_token: 'at-once-123456', refresh_token: 'rt-once-123456', expires_in: 3600, scope: SCOPE }), { status: 200 });
+    }) as typeof fetch;
+    const both = Promise.all([chatGptAccessToken(settings, slow, now), chatGptAccessToken(settings, slow, now)]);
+    resolveReply();
+    expect(await both).toEqual(['at-once-123456', 'at-once-123456']);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('treats every "sign in again" answer OpenAI documents the same way as invalid_grant', async () => {
+    for (const error of ['refresh_token_reused', 'refresh_token_expired', 'refresh_token_invalidated', 'invalid_refresh_token', 'token_expired']) {
+      const settings = await signedIn();
+      clock = new Date(clock.getTime() + 59 * 60_000);
+      await expect(chatGptAccessToken(settings, tokenEndpoint(() => ({ status: 401, json: { error } })).fetchImpl, now)).rejects.toThrow(/sign in with chatgpt again/i);
+      expect(chatGptAccount(settings)?.needsReconnect).toBe(true);
+      disconnectChatGpt(settings);
+      clock = new Date('2026-10-01T10:00:00Z');
+    }
+  });
+
+  it('a successful refresh clears a "sign in again" flag another process set meanwhile', async () => {
+    const settings = await signedIn();
+    clock = new Date(clock.getTime() + 59 * 60_000);
+    const refresh = tokenEndpoint(() => {
+      t.sqlite.prepare("update settings set value = json_set(value, '$.needsReconnect', json('true')) where key = 'ai.chatgpt'").run();
+      return { json: { access_token: 'at-new-123456', refresh_token: 'rt-new-123456', expires_in: 3600, scope: SCOPE } };
+    });
+    expect(await chatGptAccessToken(settings, refresh.fetchImpl, now)).toBe('at-new-123456');
+    expect(chatGptAccount(settings)?.needsReconnect).toBe(false);
+  });
+
+  it('lists the models this ChatGPT account may use', async () => {
+    const settings = await signedIn();
+    const seen: Array<{ url: string; auth: string | null }> = [];
+    const models = (async (url: string | URL, init?: RequestInit) => {
+      seen.push({ url: String(url), auth: new Headers(init?.headers).get('authorization') });
+      return new Response(JSON.stringify({ data: [{ id: 'gpt-5', visibility: 'list' }, { id: 'gpt-5-mini', visibility: 'list' }, { id: 'internal-x', visibility: 'hide' }] }), { status: 200 });
+    }) as typeof fetch;
+    expect(await chatGptModelIds(settings, models, now)).toEqual(['gpt-5', 'gpt-5-mini']);
+    expect(seen).toEqual([{ url: 'https://api.openai.com/v1/models', auth: 'Bearer at-first-123456' }]);
+    expect(await chatGptModelIds(settings, (async () => new Response('nope', { status: 500 })) as unknown as typeof fetch, now)).toEqual([]);
+  });
+
+  it('comes back to the AI step of setup (or to the AI settings) with the outcome', () => {
+    expect(chatGptReturnAddress('http://127.0.0.1:3000', '/welcome', { chatgpt: 'connected' })).toBe('http://127.0.0.1:3000/welcome?step=ai&chatgpt=connected');
+    expect(chatGptReturnAddress('http://127.0.0.1:3000', '/settings/ai', { error: 'No luck' })).toBe('http://127.0.0.1:3000/settings/ai?error=No+luck');
   });
 });

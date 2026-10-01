@@ -177,6 +177,48 @@ export function disconnectChatGpt(settings: SettingsStore): void {
 }
 
 const AGAIN = 'Sign in with ChatGPT again (Settings → AI provider)';
+/** Answers OpenAI documents as "clear the tokens and sign in again". */
+const SIGN_IN_AGAIN = new Set(['invalid_grant', 'refresh_token_reused', 'refresh_token_expired', 'refresh_token_invalidated', 'invalid_refresh_token', 'token_expired']);
+const errorCode = (data: Record<string, unknown>) => {
+  const e = data.error as unknown;
+  return typeof e === 'string' ? e : e && typeof e === 'object' && typeof (e as { code?: unknown }).code === 'string' ? (e as { code: string }).code : null;
+};
+
+// One refresh at a time per refresh token in this process (on globalThis: Next.js bundles get their own modules).
+const holder = globalThis as typeof globalThis & { __jobScraperChatGptRefresh?: Map<string, Promise<string>> };
+const inFlight = (holder.__jobScraperChatGptRefresh ??= new Map());
+
+async function refresh(settings: SettingsStore, account: Account, fetchImpl: typeof fetch, now: () => Date): Promise<string> {
+  const { ok, data } = await postToken(fetchImpl, { grant_type: 'refresh_token', client_id: account.clientId, refresh_token: account.refreshToken, resource: RESOURCE });
+  const tokens = TokenSchema.safeParse(data);
+  if (ok && tokens.success) {
+    registerSecret(tokens.data.access_token);
+    registerSecret(tokens.data.refresh_token);
+    const saved = settings.update(ACCOUNT_KEY, AccountSchema, null, (current) =>
+      current
+        ? {
+            ...current,
+            accessToken: tokens.data.access_token,
+            refreshToken: tokens.data.refresh_token ?? current.refreshToken,
+            expiresAt: now().getTime() + (tokens.data.expires_in ?? 3600) * 1000,
+            scope: tokens.data.scope ?? current.scope,
+            needsReconnect: false,
+          }
+        : current,
+    );
+    if (!saved) throw new ChatGptSignInError('Sign in with ChatGPT first (Settings → AI provider).');
+    return saved.accessToken;
+  }
+  const code = errorCode(data);
+  if (code && SIGN_IN_AGAIN.has(code)) {
+    // The other process may have refreshed with the same token a moment earlier and saved the new ones.
+    const latest = readAccount(settings);
+    if (latest && latest.refreshToken !== account.refreshToken && !latest.needsReconnect && latest.expiresAt - now().getTime() > REFRESH_MARGIN_MS) return latest.accessToken;
+    settings.update(ACCOUNT_KEY, AccountSchema, null, (current) => (current ? { ...current, needsReconnect: true } : current));
+    throw new ChatGptSignInError(`${AGAIN}: OpenAI ended the sign-in (${String((data.error_description as string | undefined) ?? code)}).`);
+  }
+  throw new Error(`ChatGPT token refresh failed: ${code ?? 'unexpected answer'}`);
+}
 
 /** A usable access token, refreshed shortly before it runs out. Both processes may refresh; the loser adopts the winner's. */
 export async function chatGptAccessToken(settings: SettingsStore, fetchImpl: typeof fetch = fetch, now: () => Date = () => new Date()): Promise<string> {
@@ -186,26 +228,33 @@ export async function chatGptAccessToken(settings: SettingsStore, fetchImpl: typ
   registerSecret(account.refreshToken);
   if (account.needsReconnect) throw new ChatGptSignInError(`${AGAIN}: OpenAI ended the earlier sign-in.`);
   if (account.expiresAt - now().getTime() > REFRESH_MARGIN_MS) return account.accessToken;
-
-  const { ok, data } = await postToken(fetchImpl, { grant_type: 'refresh_token', client_id: account.clientId, refresh_token: account.refreshToken, resource: RESOURCE });
-  const tokens = TokenSchema.safeParse(data);
-  if (ok && tokens.success) {
-    registerSecret(tokens.data.access_token);
-    registerSecret(tokens.data.refresh_token);
-    const saved = settings.update(ACCOUNT_KEY, AccountSchema, null, (current) =>
-      current
-        ? { ...current, accessToken: tokens.data.access_token, refreshToken: tokens.data.refresh_token ?? current.refreshToken, expiresAt: now().getTime() + (tokens.data.expires_in ?? 3600) * 1000, scope: tokens.data.scope ?? current.scope }
-        : current,
-    );
-    if (!saved) throw new ChatGptSignInError('Sign in with ChatGPT first (Settings → AI provider).');
-    return saved.accessToken;
-  }
-  if (data.error === 'invalid_grant') {
-    // Another process may have refreshed with the same token a moment earlier and saved the new ones.
-    const latest = readAccount(settings);
-    if (latest && latest.refreshToken !== account.refreshToken && latest.expiresAt - now().getTime() > REFRESH_MARGIN_MS) return latest.accessToken;
-    settings.update(ACCOUNT_KEY, AccountSchema, null, (current) => (current ? { ...current, needsReconnect: true } : current));
-    throw new ChatGptSignInError(`${AGAIN}: OpenAI ended the sign-in (${String(data.error_description ?? 'expired or revoked')}).`);
-  }
-  throw new Error(`ChatGPT token refresh failed: ${String(data.error ?? 'unexpected answer')}`);
+  const running = inFlight.get(account.refreshToken);
+  if (running) return running;
+  const attempt = refresh(settings, account, fetchImpl, now).finally(() => inFlight.delete(account.refreshToken));
+  inFlight.set(account.refreshToken, attempt);
+  return attempt;
 }
+
+/** The models this ChatGPT account may use (empty when they can't be listed). */
+export async function chatGptModelIds(settings: SettingsStore, fetchImpl: typeof fetch = fetch, now: () => Date = () => new Date()): Promise<string[]> {
+  try {
+    const token = await chatGptAccessToken(settings, fetchImpl, now);
+    const res = await fetchImpl(`${RESOURCE}/models`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    const body = z.object({ data: z.array(z.object({ id: z.string(), visibility: z.string().optional() })) }).safeParse(await res.json());
+    return body.success ? body.data.data.filter((m) => !m.visibility || m.visibility === 'list').map((m) => m.id) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Where the browser goes after signing in: the AI step of setup, or Settings → AI provider, with the outcome. */
+export function chatGptReturnAddress(origin: string, back: '/welcome' | '/settings/ai', outcome: { chatgpt?: string; error?: string }): string {
+  const url = new URL(back, origin);
+  if (back === '/welcome') url.searchParams.set('step', 'ai');
+  for (const [k, v] of Object.entries(outcome)) if (v) url.searchParams.set(k, v);
+  return url.toString();
+}
+
+/** The fixed address of OpenAI's API: a plan token never goes anywhere else (e.g. a proxy in OPENAI_BASE_URL). */
+export const CHATGPT_API_BASE = RESOURCE;

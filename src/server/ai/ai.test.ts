@@ -6,7 +6,7 @@ import { createTempDb } from '../../../tests/helpers/temp-db';
 import { aiUsage } from '../db/schema';
 import { createLogger } from '../logging';
 import { createSettings } from '../settings';
-import { AiBudgetExceededError, AiNotConfiguredError, createAi, estimateCostUsd } from './index';
+import { AiBudgetExceededError, AiNotConfiguredError, createAi, defaultModelFactory, estimateCostUsd } from './index';
 import { AI_SETTINGS_KEY, DEFAULT_MODELS } from './settings';
 
 const log = createLogger({ level: 'silent' });
@@ -249,5 +249,38 @@ describe('ai', () => {
       const rows = t.db.select().from(aiUsage).all();
       expect(rows.map((r) => [r.provider, r.costUsd, r.ok, r.inputTokens])).toEqual([['chatgpt', 0, true, 40]]);
     });
+  });
+
+  it('the ChatGPT token only ever goes to api.openai.com, even with OPENAI_BASE_URL set for something else', () => {
+    const before = process.env.OPENAI_BASE_URL;
+    process.env.OPENAI_BASE_URL = 'https://proxy.example/v1';
+    try {
+      const model = defaultModelFactory('chatgpt', 'gpt-5-mini', { provider: 'chatgpt', fastModel: null, qualityModel: null, baseUrl: null, dailyBudgetUsd: null, dailyCallLimit: 300 }, { CHATGPT_ACCESS_TOKEN: 't' }) as unknown as { config: { url: (o: { path: string; modelId: string }) => string } };
+      expect(model.config.url({ path: '/responses', modelId: 'gpt-5-mini' })).toBe('https://api.openai.com/v1/responses');
+    } finally {
+      if (before === undefined) delete process.env.OPENAI_BASE_URL;
+      else process.env.OPENAI_BASE_URL = before;
+    }
+  });
+
+  it('when the ChatGPT plan’s usage limit is reached, AI pauses like a used-up budget', async () => {
+    const settings = createSettings(t.db);
+    settings.set(AI_SETTINGS_KEY, { provider: 'chatgpt', fastModel: null, qualityModel: null, baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 });
+    settings.set('ai.chatgpt', { clientId: 'oaiapp_1', email: null, subject: 's', idToken: 'x.y.z', accessToken: 'at-1', refreshToken: 'rt-1', expiresAt: Date.now() + 3600_000, scope: 'chatgpt.tokens.use.direct', connectedAt: 1, needsReconnect: false });
+    const limited = Object.assign(new Error('Too Many Requests'), { statusCode: 429, responseBody: '{"error":{"code":"subscription_sharing_usage_limit_exceeded"}}' });
+    const ai = createAi({
+      db: t.db,
+      settings,
+      log,
+      env: {},
+      chatgptAccessToken: async () => 'at-1',
+      modelFactory: () =>
+        new MockLanguageModelV4({
+          doStream: async () => {
+            throw limited;
+          },
+        }),
+    });
+    await expect(ai.generateObject({ role: 'fast', task: 't', schema: z.object({ name: z.string() }), system: 's', prompt: 'p' })).rejects.toBeInstanceOf(AiBudgetExceededError);
   });
 });

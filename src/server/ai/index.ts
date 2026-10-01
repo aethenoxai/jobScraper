@@ -10,7 +10,7 @@ import type { Db } from '../db';
 import { aiUsage } from '../db/schema';
 import type { Logger } from '../logging';
 import type { SettingsStore } from '../settings';
-import { chatGptAccessToken, chatGptAccount } from './chatgpt-auth';
+import { CHATGPT_API_BASE, chatGptAccessToken, chatGptAccount } from './chatgpt-auth';
 import { claudeCodeObject, findClaudeCode } from './claude-code';
 import {
   AI_SETTINGS_KEY,
@@ -101,7 +101,7 @@ export const defaultModelFactory: ModelFactory = (provider, modelId, settings, e
       throw new Error('Claude Code is run directly, not through a model factory.');
     case 'chatgpt':
       // The Responses API with the user's ChatGPT sign-in instead of an API key.
-      return createOpenAI({ apiKey: env.CHATGPT_ACCESS_TOKEN }).responses(modelId);
+      return createOpenAI({ apiKey: env.CHATGPT_ACCESS_TOKEN, baseURL: CHATGPT_API_BASE }).responses(modelId);
   }
 };
 
@@ -238,7 +238,12 @@ export function createAi(deps: {
           try {
             output = (await result.output) as T;
           } catch (err) {
-            throw streamError ?? err;
+            const cause = (streamError ?? err) as { statusCode?: number; responseBody?: string; message?: string };
+            // The plan's own usage limit: pause AI like a used-up budget (work goes on with offline rules).
+            if (cause.statusCode === 429 || /usage_limit_exceeded/.test(`${cause.responseBody ?? ''} ${cause.message ?? ''}`)) {
+              throw new AiBudgetExceededError('Your ChatGPT plan’s usage limit is reached. AI work resumes when OpenAI allows it again.');
+            }
+            throw cause;
           }
           const usage = await result.usage;
           record(true, usage.inputTokens ?? 0, usage.outputTokens ?? 0);

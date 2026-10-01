@@ -1,4 +1,4 @@
-import { CHATGPT_RETURN_KEY, startChatGptSignIn } from '@/server/ai/chatgpt-auth';
+import { CHATGPT_RETURN_KEY, chatGptReturnAddress, startChatGptSignIn } from '@/server/ai/chatgpt-auth';
 import { getAppContext } from '@/server/context';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   settings.set(CHATGPT_RETURN_KEY, back);
   if (!LOOPBACK.has(config.host)) {
     const message = 'Sign in with ChatGPT works only when Job Scraper is opened on this computer at http://127.0.0.1 (OpenAI allows only that address).';
-    return Response.redirect(`${origin}${back}?error=${encodeURIComponent(message)}`, 302);
+    return Response.redirect(chatGptReturnAddress(origin, back, { error: message }), 302);
   }
   return Response.redirect(startChatGptSignIn(settings, `http://127.0.0.1:${config.port}/callback`), 302);
 }

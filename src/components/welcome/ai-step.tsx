@@ -36,6 +36,7 @@ export function AiStep({
   claudeCode,
   error,
   justSignedIn = false,
+  chatgptModels = [],
 }: {
   initial: AiSettings;
   savedKeys: Record<string, boolean>;
@@ -49,6 +50,8 @@ export function AiStep({
   error: string | null;
   /** Back from signing in with ChatGPT: that's the provider being set up. */
   justSignedIn?: boolean;
+  /** The models the signed-in ChatGPT account may use (listed by OpenAI). */
+  chatgptModels?: string[];
 }) {
   const router = useRouter();
   const [provider, setProvider] = useState<Provider>(justSignedIn ? 'chatgpt' : initial.provider === 'none' ? 'openai' : initial.provider);
@@ -60,6 +63,7 @@ export function AiStep({
   const keyVar = KEY_ENV_VAR[provider];
   const needsUrl = provider === 'ollama' || provider === 'openai-compatible';
   const keySaved = !!savedKeys[provider];
+  const choices = provider === 'chatgpt' && chatgptModels.length ? chatgptModels : MODEL_CHOICES[provider];
   const blocked = (provider === 'chatgpt' && (!chatgpt || chatgpt.needsReconnect)) || (provider === 'claude-code' && !claudeCode?.loggedIn);
 
   const choose = (p: Provider) => {
@@ -182,8 +186,8 @@ export function AiStep({
             Model for reading and matching jobs
             <input className={input} list="fast-models" value={models.fast} onChange={(e) => setModels({ ...models, fast: e.target.value })} placeholder="model name" />
           </label>
-          <datalist id="quality-models">{MODEL_CHOICES[provider].map((m) => <option key={m} value={m} />)}</datalist>
-          <datalist id="fast-models">{MODEL_CHOICES[provider].map((m) => <option key={m} value={m} />)}</datalist>
+          <datalist id="quality-models">{choices.map((m) => <option key={m} value={m} />)}</datalist>
+          <datalist id="fast-models">{choices.map((m) => <option key={m} value={m} />)}</datalist>
           <p className="text-xs text-neutral-500 sm:col-span-2">Pre-filled with good defaults: matching runs often, so a smaller model keeps the cost down.</p>
         </div>
 
