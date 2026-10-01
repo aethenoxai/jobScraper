@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const AI_SETTINGS_KEY = 'ai';
-export const AI_PROVIDERS = ['none', 'openai', 'anthropic', 'google', 'ollama', 'openai-compatible', 'claude-code'] as const;
+export const AI_PROVIDERS = ['none', 'openai', 'anthropic', 'google', 'ollama', 'openai-compatible', 'claude-code', 'chatgpt'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 export type ModelRole = 'fast' | 'quality';
 
@@ -30,7 +30,7 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
 };
 
 /** Providers paid through the user's own plan: no money is counted, calls are (dailyCallLimit). */
-export const SUBSCRIPTION_PROVIDERS: readonly AiProvider[] = ['claude-code'];
+export const SUBSCRIPTION_PROVIDERS: readonly AiProvider[] = ['claude-code', 'chatgpt'];
 
 /** OD-4 defaults; users can override per role in Settings → AI. */
 export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string | null; quality: string | null }> = {
@@ -41,6 +41,7 @@ export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string 
   'openai-compatible': { fast: null, quality: null },
   // Claude Code's model names follow the newest model of each family.
   'claude-code': { fast: 'haiku', quality: 'sonnet' },
+  chatgpt: { fast: 'gpt-5-mini', quality: 'gpt-5' },
 };
 
 /** Models offered in setup and settings (the user can also type another one). Empty: type the model's name. */
@@ -51,6 +52,7 @@ export const MODEL_CHOICES: Record<Exclude<AiProvider, 'none'>, string[]> = {
   ollama: [],
   'openai-compatible': [],
   'claude-code': ['sonnet', 'opus', 'haiku'],
+  chatgpt: ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'],
 };
 
 /** Env var holding each provider's API key. Keys live only in .env (PRD §37). */
@@ -69,6 +71,7 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
   ollama: 'Ollama (local models)',
   'openai-compatible': 'OpenAI-compatible server',
   'claude-code': 'Claude (through your Claude Code)',
+  chatgpt: 'ChatGPT (sign in with your plan)',
 };
 
 /**

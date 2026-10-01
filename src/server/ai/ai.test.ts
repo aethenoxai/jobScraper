@@ -1,3 +1,4 @@
+import { simulateReadableStream } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -191,6 +192,62 @@ describe('ai', () => {
       await expect(ask(ai)).rejects.toBeInstanceOf(AiBudgetExceededError);
       await expect(ask(ai)).rejects.toThrow(/2 AI calls/);
       expect(calls).toHaveLength(2);
+    });
+  });
+
+  describe('ChatGPT through the user’s plan (Sign in with ChatGPT)', () => {
+    function chatgpt(opts: { signedIn?: boolean } = {}) {
+      const settings = createSettings(t.db);
+      settings.set(AI_SETTINGS_KEY, { provider: 'chatgpt', fastModel: null, qualityModel: null, baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 });
+      if (opts.signedIn !== false) settings.set('ai.chatgpt', { clientId: 'oaiapp_1', email: 'a@example.com', subject: 's', idToken: 'x.y.z', accessToken: 'at-1', refreshToken: 'rt-1', expiresAt: Date.now() + 3600_000, scope: 'chatgpt.tokens.use.direct', connectedAt: 1, needsReconnect: false });
+      const seen: Array<{ model: string; token?: string; options: unknown }> = [];
+      const ai = createAi({
+        db: t.db,
+        settings,
+        log,
+        env: {},
+        chatgptAccessToken: async () => 'at-fresh-123456',
+        modelFactory: (provider, model, _s, env) => {
+          const m = new MockLanguageModelV4({
+            doStream: async (options) => {
+              seen.push({ model, token: env.CHATGPT_ACCESS_TOKEN, options });
+              return {
+                stream: simulateReadableStream({
+                  chunks: [
+                    { type: 'stream-start' as const, warnings: [] },
+                    { type: 'text-start' as const, id: '1' },
+                    { type: 'text-delta' as const, id: '1', delta: '{"name":' },
+                    { type: 'text-delta' as const, id: '1', delta: '"Asha"}' },
+                    { type: 'text-end' as const, id: '1' },
+                    { type: 'finish' as const, finishReason: { unified: 'stop' as const, raw: undefined }, usage: { inputTokens: { total: 40, noCache: 40, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 8, text: 8, reasoning: undefined } } },
+                  ],
+                }),
+              };
+            },
+          });
+          expect(provider).toBe('chatgpt');
+          return m;
+        },
+      });
+      return { ai, seen };
+    }
+
+    it('is ready once signed in; otherwise asks to sign in', () => {
+      expect(chatgpt({ signedIn: false }).ai.status()).toMatchObject({ configured: false, reason: expect.stringMatching(/sign in with chatgpt/i) });
+      expect(chatgpt().ai.status()).toMatchObject({ configured: true, keyEnvVar: null, models: { fast: 'gpt-5-mini', quality: 'gpt-5' } });
+    });
+
+    it('streams the answer with the access token, stores nothing at OpenAI, and sends the system text as instructions', async () => {
+      const { ai, seen } = chatgpt();
+      expect(await ai.generateObject({ role: 'fast', task: 't', schema: z.object({ name: z.string() }), system: 'Be exact.', prompt: 'Who?' })).toEqual({ name: 'Asha' });
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toMatchObject({ model: 'gpt-5-mini', token: 'at-fresh-123456' });
+      const options = seen[0].options as { providerOptions?: { openai?: Record<string, unknown> }; prompt: Array<{ role: string }>; temperature?: number; maxOutputTokens?: number };
+      expect(options.providerOptions?.openai).toMatchObject({ store: false, instructions: 'Be exact.', systemMessageMode: 'remove' });
+      expect(options.temperature).toBeUndefined();
+      expect(options.maxOutputTokens).toBeUndefined();
+      const rows = t.db.select().from(aiUsage).all();
+      expect(rows.map((r) => [r.provider, r.costUsd, r.ok, r.inputTokens])).toEqual([['chatgpt', 0, true, 40]]);
     });
   });
 });

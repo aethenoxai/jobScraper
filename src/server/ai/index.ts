@@ -2,7 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogle } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText, Output, type LanguageModel } from 'ai';
+import { generateText, Output, streamText, type LanguageModel } from 'ai';
 import { and, count, eq, gte, inArray, sum } from 'drizzle-orm';
 import { createOllama } from 'ollama-ai-provider-v2';
 import type { z } from 'zod';
@@ -10,6 +10,7 @@ import type { Db } from '../db';
 import { aiUsage } from '../db/schema';
 import type { Logger } from '../logging';
 import type { SettingsStore } from '../settings';
+import { chatGptAccessToken, chatGptAccount } from './chatgpt-auth';
 import { claudeCodeObject, findClaudeCode } from './claude-code';
 import {
   AI_SETTINGS_KEY,
@@ -98,6 +99,9 @@ export const defaultModelFactory: ModelFactory = (provider, modelId, settings, e
       return createOpenAICompatible({ name: 'custom', baseURL: settings.baseUrl ?? '', apiKey: env.OPENAI_COMPATIBLE_API_KEY })(modelId);
     case 'claude-code':
       throw new Error('Claude Code is run directly, not through a model factory.');
+    case 'chatgpt':
+      // The Responses API with the user's ChatGPT sign-in instead of an API key.
+      return createOpenAI({ apiKey: env.CHATGPT_ACCESS_TOKEN }).responses(modelId);
   }
 };
 
@@ -117,7 +121,10 @@ export function createAi(deps: {
   claudeCodeBin?: () => string | null;
   /** Runs Claude Code (tests pass a stand-in). */
   runClaudeCode?: typeof claudeCodeObject;
+  /** A fresh ChatGPT access token (default: from the stored sign-in, refreshed when needed). */
+  chatgptAccessToken?: () => Promise<string>;
 }): Ai {
+  const chatgptToken = deps.chatgptAccessToken ?? (() => chatGptAccessToken(deps.settings));
   const claudeBin = deps.claudeCodeBin ?? (() => findClaudeCode());
   const runClaude = deps.runClaudeCode ?? claudeCodeObject;
   const readEnv = () => (typeof deps.env === 'function' ? deps.env() : (deps.env ?? process.env));
@@ -157,6 +164,8 @@ export function createAi(deps: {
     const keyPresent = keyEnvVar && s.provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
     let reason: string | null = null;
     if (s.provider === 'claude-code' && !claudeBin()) reason = 'Claude Code isn’t installed on this computer. Install it and sign in with `claude auth login`.';
+    else if (s.provider === 'chatgpt' && !chatGptAccount(deps.settings)) reason = 'Sign in with ChatGPT first.';
+    else if (s.provider === 'chatgpt' && chatGptAccount(deps.settings)?.needsReconnect) reason = 'Sign in with ChatGPT again: OpenAI ended the earlier sign-in.';
     else if (!keyPresent) reason = `Add ${keyEnvVar} to your .env file.`;
     else if (!models.fast || !models.quality) reason = 'Enter model names for this provider.';
     else if (s.provider === 'openai-compatible' && !s.baseUrl) reason = 'Enter the base URL of your OpenAI-compatible server.';
@@ -210,6 +219,30 @@ export function createAi(deps: {
           const r = await runClaude({ bin, model: modelId, system: req.system, prompt: req.prompt, schema: req.schema, signal: req.signal, timeoutMs: req.timeoutMs });
           record(true, r.inputTokens, r.outputTokens);
           return r.object;
+        }
+        if (s.provider === 'chatgpt') {
+          // Plan usage takes streamed, unstored requests with the system text as instructions (no temperature or
+          // output limit): developers.openai.com/siwc/token-sharing-open-source/preview-limitations.
+          let streamError: unknown = null;
+          const result = streamText({
+            model: factory('chatgpt', modelId, s, { CHATGPT_ACCESS_TOKEN: await chatgptToken() }),
+            output: Output.object({ schema: req.schema }),
+            prompt: req.prompt,
+            providerOptions: { openai: { store: false, instructions: req.system, systemMessageMode: 'remove' } },
+            abortSignal,
+            onError: ({ error }) => {
+              streamError = error;
+            },
+          });
+          let output: T;
+          try {
+            output = (await result.output) as T;
+          } catch (err) {
+            throw streamError ?? err;
+          }
+          const usage = await result.usage;
+          record(true, usage.inputTokens ?? 0, usage.outputTokens ?? 0);
+          return output;
         }
         const result = await generateText({
           model: factory(s.provider, modelId, s, readEnv()),
