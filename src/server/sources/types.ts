@@ -54,6 +54,18 @@ export interface SourceHints {
   keywords: string[];
 }
 
+/** A web page read with a real (stealth) browser: the rendered HTML and where it ended up after redirects. */
+export interface FetchedPage {
+  html: string;
+  finalUrl: string;
+  status: number;
+}
+
+/** Reads job pages for web discovery and "Add by link" (Scrapling, see src/server/scrapling). Throws PageFetchError. */
+export interface PageFetcher {
+  fetchPage(url: string, opts: { signal: AbortSignal; timeoutMs?: number; maxBytes?: number }): Promise<FetchedPage>;
+}
+
 export interface SourceContext<C> {
   config: C;
   http: HttpClient;
@@ -67,6 +79,8 @@ export interface SourceContext<C> {
   ai: Ai | null;
   /** DNS resolver used to refuse private addresses (injected in tests). */
   lookup?: Lookup;
+  /** Reads web pages (missing when Scrapling isn't set up; only page-reading adapters need it). */
+  pages?: PageFetcher;
   /** Lets discovery adapters register newly found company boards as sources. */
   registerSource?: (adapterId: string, name: string, config: Record<string, unknown>) => void;
 }
