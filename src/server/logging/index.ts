@@ -12,8 +12,12 @@ export const REDACT_PATHS = [
   ...SENSITIVE.map((k) => `*.headers${bracket(k)}`),
 ];
 
-/** Secret values known at runtime (API keys, tokens, passwords). Every log line is scrubbed of them. */
-const registry = new Set<string>();
+/**
+ * Secret values known at runtime (API keys, tokens, passwords). Every log line is scrubbed of them. Kept on globalThis:
+ * Next.js route bundles get their own copy of this module, and a key registered in one must be scrubbed in all.
+ */
+const holder = globalThis as typeof globalThis & { __jobScraperSecrets?: Set<string> };
+const registry = (holder.__jobScraperSecrets ??= new Set<string>());
 const MIN_SECRET_LENGTH = 6;
 
 /** Adds a secret value that must never appear in logs (e.g. a key loaded after startup). */

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createLogger, registerSecret, scrub } from './index';
 
 function capture() {
@@ -95,5 +95,20 @@ describe('log format (final review, ops minor)', () => {
 describe('scrub', () => {
   it('replaces every occurrence and ignores empty secrets', () => {
     expect(scrub('a KEY b KEY', ['KEY', ''])).toBe('a [REDACTED] b [REDACTED]');
+  });
+});
+
+describe('secrets registered in another copy of this module (Next.js bundles each get their own)', () => {
+  it('are still removed from every log line and message', async () => {
+    vi.resetModules();
+    const routeCopy = await import('./index');
+    vi.resetModules();
+    const contextCopy = await import('./index');
+    expect(routeCopy).not.toBe(contextCopy);
+    routeCopy.registerSecret('sk-typed-in-setup-777');
+    expect(contextCopy.scrubSecrets('provider said: bad key sk-typed-in-setup-777')).toBe('provider said: bad key [REDACTED]');
+    const lines: string[] = [];
+    contextCopy.createLogger({ destination: { write: (l) => lines.push(l) } }).warn({ error: 'sk-typed-in-setup-777 rejected' }, 'AI call failed');
+    expect(lines.join('')).not.toContain('sk-typed-in-setup-777');
   });
 });
