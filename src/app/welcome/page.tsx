@@ -8,12 +8,13 @@ import { Progress, STEP_ORDER, type WizardStep } from '@/components/welcome/prog
 import { ReviewStep } from '@/components/welcome/review-step';
 import { StartStep } from '@/components/welcome/start-step';
 import { AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS, KEY_ENV_VAR } from '@/server/ai/settings';
-import { chatGptAccount } from '@/server/ai/chatgpt-auth';
+import { chatGptAccount, chatGptModelIds } from '@/server/ai/chatgpt-auth';
 import { claudeCodeStatus } from '@/server/ai/claude-code';
 import { liveEnv } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 import { onboardingStatus } from '@/server/onboarding';
-import { suggestedPreferences } from '@/server/onboarding-steps';
+import { cvWaitNotice, suggestedPreferences } from '@/server/onboarding-steps';
+import { getSystemStatus } from '@/server/status';
 import { formatExpectedSalary, missingFields } from '@/server/profile/model';
 
 export const metadata: Metadata = { title: 'Set up Job Scraper' };
@@ -31,6 +32,8 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
   const inDocker = process.env.JOB_SCRAPER_IN_DOCKER === 'true';
   const step = typeof asked === 'string' && (STEP_ORDER as readonly string[]).includes(asked) && STEP_ORDER.indexOf(asked as WizardStep) < STEP_ORDER.indexOf(current) ? (asked as WizardStep) : current;
   const ai = ctx.ai.status();
+  const system = getSystemStatus(ctx);
+  const waitNotice = cvWaitNotice({ workerOnline: system.worker.online, cv: step === 'cv' ? status.cv : null, now: new Date(system.generatedAt) });
 
   return (
     <div className="space-y-6">
@@ -40,6 +43,11 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
         <p className="text-sm text-neutral-600 dark:text-neutral-400">Nothing is searched until you finish. Your data stays on this computer, except what you send to the AI provider you choose.</p>
       </header>
       <Progress current={step} reached={current} />
+      {waitNotice && (
+        <p role="alert" className="rounded border border-amber-400 px-3 py-2 text-sm" data-testid="wizard-wait-notice">
+          {waitNotice}
+        </p>
+      )}
       {step === 'ai' && (
         <AiStep
           initial={ctx.settings.get(AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS)}
@@ -50,6 +58,7 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
           claudeCode={inDocker ? null : await claudeCodeStatus()}
           error={typeof params.error === 'string' ? params.error.slice(0, 300) : null}
           justSignedIn={params.chatgpt === 'connected'}
+          chatgptModels={chatGptAccount(ctx.settings) ? await chatGptModelIds(ctx.settings) : []}
         />
       )}
       {step === 'cv' && (

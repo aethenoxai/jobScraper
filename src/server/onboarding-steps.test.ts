@@ -7,7 +7,7 @@ import { AI_SETTINGS_KEY } from './ai/settings';
 import { createLogger } from './logging';
 import { RESCORE_TASK } from './matching/tasks';
 import { onboardingStatus, readOnboarding, updateOnboarding } from './onboarding';
-import { beginCvUpload, confirmProfile, saveJobPreferences, startJobSearch, suggestedPreferences, type JobPreferencesInput } from './onboarding-steps';
+import { beginCvUpload, confirmProfile, cvWaitNotice, saveJobPreferences, startJobSearch, suggestedPreferences, type JobPreferencesInput } from './onboarding-steps';
 import { createCvService } from './profile/cv-service';
 import { createProfileService } from './profile/service';
 import { createQueue } from './queue';
@@ -178,5 +178,24 @@ describe('setup steps', () => {
     expect(suggestedPreferences(c.profiles.get(id)!)).toMatchObject({ country: 'IN', states: ['Karnataka', 'Tamil Nadu'], cities: [], otherCountries: ['GB'], expectedSalary: 3_000_000, negotiable: false });
     saveJobPreferences(c, valid({ cities: ['Bangalore', 'Mysore'] }));
     expect(suggestedPreferences(c.profiles.get(id)!)).toMatchObject({ country: 'IN', states: [], cities: ['Bangalore', 'Mysore'] });
+  });
+
+  it('upgrading with an unfinished profile: the profile made in setup becomes the default one', async () => {
+    const c = ctx();
+    const old = c.profiles.create('Old, never finished');
+    expect(c.profiles.get(old.id)?.isDefault).toBe(true);
+    const id = await uploadAndRead(c);
+    expect(c.profiles.get(id)?.isDefault).toBe(true);
+    expect(c.profiles.get(old.id)?.isDefault).toBe(false);
+  });
+
+  it('while the CV is read, says when the background worker is not running, or when it takes unusually long', () => {
+    const at = new Date('2026-10-01T10:00:00Z');
+    const reading = { status: 'extracting', uploadedAt: at };
+    expect(cvWaitNotice({ workerOnline: false, cv: reading, now: at })).toMatch(/worker isn.t running.*pnpm start/i);
+    expect(cvWaitNotice({ workerOnline: false, cv: null, now: at })).toMatch(/worker isn.t running/i);
+    expect(cvWaitNotice({ workerOnline: true, cv: reading, now: new Date(at.getTime() + 60_000) })).toBeNull();
+    expect(cvWaitNotice({ workerOnline: true, cv: reading, now: new Date(at.getTime() + 4 * 60_000) })).toMatch(/longer than usual/i);
+    expect(cvWaitNotice({ workerOnline: true, cv: { status: 'applied', uploadedAt: at }, now: new Date(at.getTime() + 9 * 60_000) })).toBeNull();
   });
 });

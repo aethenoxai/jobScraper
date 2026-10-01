@@ -35,7 +35,7 @@ import { createPdfRenderer, type PdfRenderer } from '@/server/tailoring/render';
 import { createMatchEvaluateHandler, createRescoreHandler, enqueueMatching, MATCH_TASK, reconcileMatches, RESCORE_TASK } from '@/server/matching/tasks';
 import { createMailer } from '@/server/email/mailer';
 import { createNotifier, NOTIFY_FLUSH_TASK, NOTIFY_SEND_TASK } from '@/server/notifications/dispatcher';
-import { isOnboarded } from '@/server/onboarding';
+import { isOnboarded, recordEarlierSetup } from '@/server/onboarding';
 import { notifyNewMatches } from '@/server/notifications/hooks';
 import { createDesktopNotifier, createNotifyFlushHandler, createNotifySendHandler } from '@/server/notifications/send';
 import { createTelegramBot } from '@/server/notifications/telegram/bot';
@@ -107,6 +107,8 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
   const files = createFileStore(config.filesDir);
   const profiles = createProfileService({ db: handle.db, files, onChanged: (profileId) => queue.enqueue(RESCORE_TASK, { profileId }, { dedupeKey: `${RESCORE_TASK}:${profileId}` }) });
   // Nothing is searched before onboarding is finished (the web page and the worker check the same saved state).
+  // An install set up before onboarding existed is recorded as done, once.
+  if (recordEarlierSetup({ settings, profiles })) log.info('recorded an install set up before onboarding existed as onboarded');
   const canScan = () => isOnboarded({ settings, profiles });
   const scheduler = createScheduler({ settings, queue, canScan });
   const notifier = createNotifier({ db: handle.db, settings, queue });

@@ -14,7 +14,7 @@ import { createMatchService, type MatchService } from './matching/service';
 import { createTrackingService, type TrackingService } from './tracking/service';
 import { RESCORE_TASK } from './matching/tasks';
 import { createNotifier, type Notifier } from './notifications/dispatcher';
-import { isOnboarded } from './onboarding';
+import { isOnboarded, recordEarlierSetup } from './onboarding';
 import { registerBuiltInAdapters } from './sources/adapters';
 import { createSourceService, type SourceService } from './sources/service';
 import { createFileStore, type FileStore } from './storage';
@@ -55,6 +55,8 @@ export function getAppContext(): AppContext {
     // Keys pasted during setup are written to .env: read them from there on every use, no restart needed.
     const ai = createAi({ db, settings, log, env: () => liveEnv() });
     const apps = createApplicationService({ db, files, queue, profiles });
+    // An install set up before onboarding existed is recorded as done, once (the worker does the same).
+    recordEarlierSetup({ settings, profiles });
     holder.__jobScraperContext = {
       config,
       db,

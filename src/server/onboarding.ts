@@ -42,11 +42,27 @@ const filled = (p: ProfileRecord) => p.data.experience.length + p.data.skills.le
  * Onboarded: the user pressed Start and a profile exists. An install from before onboarding existed counts when it
  * already has a filled profile with target titles, so upgrading never locks anyone out.
  */
+const setUpEarlier = (profiles: ProfileRecord[]) => profiles.some((p) => filled(p) && p.preferences.targetTitles.length + p.data.targetTitles.length > 0);
+
 export function isOnboarded(deps: { settings: SettingsStore; profiles: Pick<ProfileService, 'list'> }): boolean {
   const state = readOnboarding(deps.settings);
   const profiles = deps.profiles.list();
   if (state) return state.completedAt !== null && profiles.length > 0;
-  return profiles.some((p) => filled(p) && p.preferences.targetTitles.length + p.data.targetTitles.length > 0);
+  return setUpEarlier(profiles);
+}
+
+/**
+ * An install set up before onboarding existed gets its record saved once (at start), so later edits (clearing the
+ * target titles, a new CV) can't send it back to setup. Returns true when a record was saved.
+ */
+export function recordEarlierSetup(deps: { settings: SettingsStore; profiles: Pick<ProfileService, 'list'>; now?: () => Date }): boolean {
+  if (readOnboarding(deps.settings)) return false;
+  const profiles = deps.profiles.list();
+  if (!setUpEarlier(profiles)) return false;
+  const at = (deps.now ?? (() => new Date()))().getTime();
+  const profile = profiles.find((p) => p.isDefault) ?? profiles[0];
+  updateOnboarding(deps.settings, () => ({ profileId: profile.id, aiVerifiedAt: at, profileConfirmedAt: at, preferencesConfirmedAt: at, completedAt: at }));
+  return true;
 }
 
 export interface OnboardingStatus {

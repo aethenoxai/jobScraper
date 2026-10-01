@@ -5,7 +5,7 @@ import { createTempDb } from '../../tests/helpers/temp-db';
 import { createAi } from './ai';
 import { AI_SETTINGS_KEY } from './ai/settings';
 import { createLogger } from './logging';
-import { isOnboarded, ONBOARDING_KEY, onboardingStatus, readOnboarding, updateOnboarding } from './onboarding';
+import { isOnboarded, ONBOARDING_KEY, onboardingStatus, readOnboarding, recordEarlierSetup, updateOnboarding } from './onboarding';
 import { createCvService } from './profile/cv-service';
 import { assignIds, DEFAULT_PREFERENCES, emptyProfile } from './profile/model';
 import { createProfileService } from './profile/service';
@@ -138,5 +138,26 @@ describe('onboarding: one step at a time, worked out from what is saved', () => 
     updateOnboarding(d.settings, (s) => ({ ...s, aiVerifiedAt: 5 }));
     expect(t.sqlite.prepare('select key from settings where key = ?').get(ONBOARDING_KEY)).toBeTruthy();
     expect(readOnboarding(d.settings)).toEqual({ profileId: null, aiVerifiedAt: 5, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null });
+  });
+
+  it('an older install counted as set up stays set up after its target titles are cleared (saved once, at start)', () => {
+    const d = deps({});
+    const p = filledProfile(d, ['Backend Engineer']);
+    expect(recordEarlierSetup(d)).toBe(true);
+    expect(readOnboarding(d.settings)).toMatchObject({ profileId: p.id, completedAt: expect.any(Number) });
+    d.profiles.updatePreferences(p.id, { ...DEFAULT_PREFERENCES, targetTitles: [] }, 100);
+    expect(isOnboarded(d)).toBe(true);
+  });
+
+  it('saves nothing for a fresh install, an unfinished older one, or one that already has a record', () => {
+    const fresh = deps({});
+    expect(recordEarlierSetup(fresh)).toBe(false);
+    fresh.profiles.create('Empty');
+    expect(recordEarlierSetup(fresh)).toBe(false);
+    expect(readOnboarding(fresh.settings)).toBeNull();
+    updateOnboarding(fresh.settings, (s) => ({ ...s, aiVerifiedAt: 1 }));
+    filledProfile(fresh, ['Backend Engineer']);
+    expect(recordEarlierSetup(fresh)).toBe(false);
+    expect(readOnboarding(fresh.settings)?.completedAt).toBeNull();
   });
 });

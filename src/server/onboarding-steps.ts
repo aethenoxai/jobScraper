@@ -37,6 +37,8 @@ export async function beginCvUpload(c: OnboardingContext, file: { name: string; 
   const earlier = state?.profileId != null ? c.profiles.get(state.profileId) : null;
   if (earlier) await c.profiles.delete(earlier.id);
   const profile = c.profiles.create('Main profile');
+  // An older install may have an unfinished profile: the dashboard and feed should open on this one.
+  c.profiles.setDefault(profile.id);
   updateOnboarding(c.settings, (s) => ({ ...s, profileId: profile.id, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null }));
   await c.cvs.upload(profile.id, file.name, file.buf);
   return { profileId: profile.id };
@@ -122,6 +124,16 @@ export function startJobSearch(c: OnboardingContext, intervalMinutes: number): v
   c.scheduler.setIntervalMinutes(intervalMinutes);
   c.scheduler.start();
   c.queue.enqueue(RESCORE_TASK, { profileId: profile.id }, { dedupeKey: `${RESCORE_TASK}:${profile.id}` });
+}
+
+const SLOW_READ_MS = 3 * 60_000;
+
+/** Why setup may seem stuck while the CV is read: no worker to read it, or it is taking unusually long. */
+export function cvWaitNotice(opts: { workerOnline: boolean; cv: { status: string; uploadedAt: Date } | null; now: Date }): string | null {
+  if (!opts.workerOnline) return 'The background worker isn’t running, so your CV can’t be read and nothing can be searched. Start Job Scraper with `pnpm start` (or `pnpm dev`), then keep this page open.';
+  const reading = opts.cv && (opts.cv.status === 'uploaded' || opts.cv.status === 'extracting');
+  if (reading && opts.now.getTime() - opts.cv!.uploadedAt.getTime() > SLOW_READ_MS) return 'This is taking longer than usual. Check the terminal where Job Scraper runs for errors; the CV is read again if the worker restarts.';
+  return null;
 }
 
 /** Where the user wants to work, read back from saved locations (as the pickers show them). */
