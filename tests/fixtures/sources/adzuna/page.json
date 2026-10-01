@@ -1,0 +1,33 @@
+{
+ "__note": "Hand-written from the documented Adzuna /jobs/{country}/search response shape (no API key available when recorded). All values invented.",
+ "count": 2,
+ "results": [
+  {
+   "id": "4911234567",
+   "title": "Senior <strong>React</strong> Developer",
+   "description": "We are hiring a senior React developer to build customer dashboards with TypeScript and Node.js…",
+   "redirect_url": "https://www.adzuna.in/details/4911234567?utm_medium=api",
+   "created": "2026-09-28T10:15:00Z",
+   "company": { "display_name": "Example Fintech Pvt Ltd" },
+   "location": { "display_name": "Bengaluru, Karnataka", "area": ["India", "Karnataka", "Bengaluru"] },
+   "salary_min": 1500000,
+   "salary_max": 2200000,
+   "salary_is_predicted": "0",
+   "contract_time": "full_time",
+   "contract_type": "permanent"
+  },
+  {
+   "id": "4911234999",
+   "title": "Frontend Engineer",
+   "description": "Join our remote-first team…",
+   "redirect_url": "https://www.adzuna.in/details/4911234999?utm_medium=api",
+   "created": "2026-09-27T08:00:00Z",
+   "company": { "display_name": "Sample Retail" },
+   "location": { "display_name": "Pune, Maharashtra", "area": ["India", "Maharashtra", "Pune"] },
+   "salary_is_predicted": "1",
+   "salary_min": 900000,
+   "salary_max": 900000,
+   "contract_time": "full_time"
+  }
+ ]
+}

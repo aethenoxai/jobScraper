@@ -1,0 +1,396 @@
+{
+  "label": "offline-deep",
+  "grounded": 1,
+  "coverage": {
+    "master": 1,
+    "tailored": 1
+  },
+  "pass": true,
+  "rows": [
+    {
+      "profile": "engineer",
+      "title": "Full Stack Developer",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "TypeScript",
+        "React",
+        "Node.js",
+        "PostgreSQL",
+        "MongoDB",
+        "Docker"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "engineer",
+      "title": "Senior Frontend Engineer",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "TypeScript",
+        "React",
+        "Next.js"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "engineer",
+      "title": "Full Stack Engineer",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "React",
+        "Node.js",
+        "MongoDB"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "engineer",
+      "title": "Frontend Developer",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "TypeScript",
+        "React"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "nurse",
+      "title": "Staff Nurse - Acute Medicine",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Medication Administration",
+        "IV Therapy"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "nurse",
+      "title": "Registered Nurse",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Patient Care",
+        "Wound Care"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "nurse",
+      "title": "Staff Nurse (Nights)",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Triage"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "nurse",
+      "title": "Registered Nurse - ICU",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Patient Care"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "sales",
+      "title": "Regional Sales Manager",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Salesforce",
+        "Forecasting",
+        "B2B",
+        "SaaS"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "sales",
+      "title": "Senior Account Executive",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Salesforce",
+        "HubSpot",
+        "Negotiation",
+        "SaaS"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "sales",
+      "title": "Sales Manager",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Salesforce",
+        "Pipeline Management",
+        "B2B"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "sales",
+      "title": "Account Executive",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Negotiation",
+        "B2B"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "engineer",
+      "title": "Front-End Engineer",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "TypeScript",
+        "React"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "engineer",
+      "title": "Full Stack Developer",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "TypeScript",
+        "React",
+        "Node.js"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "engineer",
+      "title": "Backend Developer (Node.js)",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Node.js",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "engineer",
+      "title": "React Developer",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "TypeScript",
+        "React",
+        "Next.js"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "nurse",
+      "title": "Band 5 Staff Nurse",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Patient Care",
+        "Medication Administration"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "nurse",
+      "title": "Registered Nurse - Community",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Wound Care"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "nurse",
+      "title": "Theatre Staff Nurse",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Patient Care"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "sales",
+      "title": "Account Executive",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Salesforce",
+        "Negotiation",
+        "B2B",
+        "SaaS"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "sales",
+      "title": "Enterprise Account Executive",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Pipeline Management",
+        "Forecasting",
+        "SaaS"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "sales",
+      "title": "Sales Manager",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Salesforce",
+        "B2B"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "analyst",
+      "title": "Data Analyst",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "SQL",
+        "Power BI",
+        "Tableau",
+        "Excel"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "analyst",
+      "title": "Junior Data Analyst",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Python",
+        "SQL",
+        "Statistics"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "analyst",
+      "title": "Business Analyst",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "SQL",
+        "Excel"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "analyst",
+      "title": "Data Analyst",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [
+        "Python",
+        "SQL",
+        "Power BI"
+      ],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "teacher",
+      "title": "Mathematics Teacher",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "teacher",
+      "title": "Secondary Maths Teacher (IGCSE)",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [],
+      "master": 1,
+      "tailored": 1
+    },
+    {
+      "profile": "teacher",
+      "title": "Head of Mathematics",
+      "method": "offline",
+      "repairs": 0,
+      "violations": [],
+      "keywords": [],
+      "master": 1,
+      "tailored": 1
+    }
+  ]
+}

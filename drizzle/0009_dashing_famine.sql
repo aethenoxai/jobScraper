@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `documents_app_kind_uq` ON `documents` (`application_id`,`kind`) WHERE "documents"."kind" not in ('screenshot', 'attachment');

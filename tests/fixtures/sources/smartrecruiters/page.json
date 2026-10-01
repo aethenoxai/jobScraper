@@ -1,0 +1,429 @@
+{
+ "offset": 0,
+ "limit": 3,
+ "totalFound": 4836,
+ "content": [
+  {
+   "id": "744000152779389",
+   "name": "Ingeniero de Mantenimiento de Edificios",
+   "uuid": "ac01d31d-a1bb-4981-9f96-5f7999d246b3",
+   "jobAdId": "4ea414ac-9de4-4379-a93a-0cf9907f1018",
+   "defaultJobAd": true,
+   "refNumber": "REF297042F",
+   "company": {
+    "identifier": "BoschGroup",
+    "name": "Bosch Group"
+   },
+   "releasedDate": "2026-09-30T22:44:02.293Z",
+   "location": {
+    "city": "La Piedad",
+    "region": "Qro.",
+    "country": "mx",
+    "address": "Colon",
+    "postalCode": "76246",
+    "remote": false,
+    "hybrid": false,
+    "latitude": "20.5791572",
+    "longitude": "-100.2532967",
+    "fullLocation": "La Piedad, Qro., Mexico"
+   },
+   "industry": {
+    "id": "facilities_services",
+    "label": "Facilities Services"
+   },
+   "department": {},
+   "function": {
+    "id": "engineering",
+    "label": "Engineering"
+   },
+   "typeOfEmployment": {
+    "id": "permanent",
+    "label": "Full-time"
+   },
+   "experienceLevel": {
+    "id": "associate",
+    "label": "Associate"
+   },
+   "customField": [
+    {
+     "fieldId": "5abe2a4ab60a5e486a2d9b1d",
+     "fieldLabel": "Contract type",
+     "valueId": "1e46492b-d24f-460c-b095-38cf08a778d8",
+     "valueLabel": "Unlimited"
+    },
+    {
+     "fieldId": "5abe28e96d8bc56863dd9746",
+     "fieldLabel": "Tariff Area",
+     "valueId": "540ff3f7-a953-4856-97e3-f2202d80c57c",
+     "valueLabel": "Mexico Local Grades"
+    },
+    {
+     "fieldId": "586a997ee4b05fd937b86098",
+     "fieldLabel": "Legal Entity(acronym)",
+     "valueId": "RBMX",
+     "valueLabel": "RBMX"
+    },
+    {
+     "fieldId": "586a99b5e4b0daa006ae1079",
+     "fieldLabel": "Working Location",
+     "valueId": "Queretaro",
+     "valueLabel": "Querétaro"
+    },
+    {
+     "fieldId": "5abe295a6d8bc56863dd9747",
+     "fieldLabel": "Global Salary Level",
+     "valueId": "427b1359-5057-4375-a2ae-6c649782296d",
+     "valueLabel": "Experienced/ Middle Tariff"
+    },
+    {
+     "fieldId": "69ca83a2489188782a1e9f87",
+     "fieldLabel": "Direct Or Indirect",
+     "valueId": "1aefbf4c-c10a-422e-a975-a504a7117792",
+     "valueLabel": "Indirect"
+    },
+    {
+     "fieldId": "5abe29f9b60a5e486a2d9b1c",
+     "fieldLabel": "Working hours",
+     "valueId": "60756b3e-dbab-4353-ac3a-0064d2bb27d8",
+     "valueLabel": "Full-time"
+    },
+    {
+     "fieldId": "586a9995e4b0daa006ae1078",
+     "fieldLabel": "Legal Entity",
+     "valueId": "Robert Bosch México, S.A. de C.V.",
+     "valueLabel": "Robert Bosch Mexico S.A. de C.V."
+    },
+    {
+     "fieldId": "691cf1c93001c782b9560ab7",
+     "fieldLabel": "Division full name",
+     "valueId": "b4bd3aa5-e828-4242-aaa0-694d1f3d77d7",
+     "valueLabel": "Global Real Estate"
+    },
+    {
+     "fieldId": "5abe27936d8bc56863dd9745",
+     "fieldLabel": "Position type",
+     "valueId": "c7b4da31-6f38-405a-b2e8-08a76e3c3f2c",
+     "valueLabel": "Professional"
+    },
+    {
+     "fieldId": "COUNTRY",
+     "fieldLabel": "Country/Region",
+     "valueId": "mx",
+     "valueLabel": "Mexico"
+    },
+    {
+     "fieldId": "586a971ee4b0daa006ae1077",
+     "fieldLabel": "Brands",
+     "valueId": "default",
+     "valueLabel": "Bosch Group"
+    },
+    {
+     "fieldId": "586a996ce4b05fd937b86097",
+     "fieldLabel": "Working Country",
+     "valueId": "MX",
+     "valueLabel": "Mexico"
+    },
+    {
+     "fieldId": "586a9b22e4b05fd937b8609a",
+     "fieldLabel": "Local Grade",
+     "valueId": "MX_E3",
+     "valueLabel": "MX_E3"
+    },
+    {
+     "fieldId": "586a99a5e4b05fd937b86099",
+     "fieldLabel": "Division",
+     "valueId": "def5147d-d289-4ac9-88f1-548f269ae9d7",
+     "valueLabel": "GR"
+    }
+   ],
+   "visibility": "PUBLIC",
+   "ref": "https://api.smartrecruiters.com/v1/companies/BoschGroup/postings/744000152779389",
+   "language": {
+    "code": "en",
+    "label": "English",
+    "labelNative": "English (US)"
+   }
+  },
+  {
+   "id": "744000152769070",
+   "name": "Development Engineer – Reliability Responsible (f/m/div.)",
+   "uuid": "ad7d4478-b099-4744-a270-56f3a696f643",
+   "jobAdId": "36a3f944-0491-4005-b8cf-8abb8e8d21e2",
+   "defaultJobAd": true,
+   "refNumber": "REF297469G",
+   "company": {
+    "identifier": "BoschGroup",
+    "name": "Bosch Group"
+   },
+   "releasedDate": "2026-09-30T21:15:42.588Z",
+   "location": {
+    "city": "Cacia - Aveiro",
+    "country": "pt",
+    "address": "EN 16 - Km 3,7",
+    "remote": false,
+    "hybrid": true,
+    "fullLocation": "Cacia - Aveiro, , Portugal"
+   },
+   "industry": {
+    "id": "mechanical_engineering",
+    "label": "Mechanical Or Industrial Engineering"
+   },
+   "department": {},
+   "function": {
+    "id": "engineering",
+    "label": "Engineering"
+   },
+   "typeOfEmployment": {
+    "id": "permanent",
+    "label": "Full-time"
+   },
+   "experienceLevel": {
+    "id": "associate",
+    "label": "Associate"
+   },
+   "customField": [
+    {
+     "fieldId": "5abe2a4ab60a5e486a2d9b1d",
+     "fieldLabel": "Contract type",
+     "valueId": "98487475-2a49-44f5-a615-408b525b3821",
+     "valueLabel": "Limited"
+    },
+    {
+     "fieldId": "5abe28e96d8bc56863dd9746",
+     "fieldLabel": "Tariff Area",
+     "valueId": "7174fab4-934a-47da-81a5-cb2d914a4719",
+     "valueLabel": "Portugal Local Grades"
+    },
+    {
+     "fieldId": "586a997ee4b05fd937b86098",
+     "fieldLabel": "Legal Entity(acronym)",
+     "valueId": "6bd00876-3efa-419c-9aac-20d5efb2d4fb",
+     "valueLabel": "TTPO"
+    },
+    {
+     "fieldId": "586a99b5e4b0daa006ae1079",
+     "fieldLabel": "Working Location",
+     "valueId": "24acf415-0512-4e5c-bfb3-c702a3ea6c64",
+     "valueLabel": "Aveiro"
+    },
+    {
+     "fieldId": "5abe295a6d8bc56863dd9747",
+     "fieldLabel": "Global Salary Level",
+     "valueId": "80ae06a1-4738-48e8-8aea-4613f58ecd57",
+     "valueLabel": "Others"
+    },
+    {
+     "fieldId": "69ca83a2489188782a1e9f87",
+     "fieldLabel": "Direct Or Indirect",
+     "valueId": "1aefbf4c-c10a-422e-a975-a504a7117792",
+     "valueLabel": "Indirect"
+    },
+    {
+     "fieldId": "5abe29f9b60a5e486a2d9b1c",
+     "fieldLabel": "Working hours",
+     "valueId": "60756b3e-dbab-4353-ac3a-0064d2bb27d8",
+     "valueLabel": "Full-time"
+    },
+    {
+     "fieldId": "586a9995e4b0daa006ae1078",
+     "fieldLabel": "Legal Entity",
+     "valueId": "18ec5c40-faae-4f76-b08d-ca6504012787",
+     "valueLabel": "Home Comfort"
+    },
+    {
+     "fieldId": "691cf1c93001c782b9560ab7",
+     "fieldLabel": "Division full name",
+     "valueId": "65a82db8-6dd3-40f0-a812-01522dc95503",
+     "valueLabel": "Home Comfort"
+    },
+    {
+     "fieldId": "5abe27936d8bc56863dd9745",
+     "fieldLabel": "Position type",
+     "valueId": "c7b4da31-6f38-405a-b2e8-08a76e3c3f2c",
+     "valueLabel": "Professional"
+    },
+    {
+     "fieldId": "COUNTRY",
+     "fieldLabel": "Country/Region",
+     "valueId": "pt",
+     "valueLabel": "Portugal"
+    },
+    {
+     "fieldId": "586a971ee4b0daa006ae1077",
+     "fieldLabel": "Brands",
+     "valueId": "default",
+     "valueLabel": "Bosch Group"
+    },
+    {
+     "fieldId": "586a996ce4b05fd937b86097",
+     "fieldLabel": "Working Country",
+     "valueId": "5ec12aa3-3c77-41f9-9e2c-af98140190a3",
+     "valueLabel": "Portugal"
+    },
+    {
+     "fieldId": "586a9b22e4b05fd937b8609a",
+     "fieldLabel": "Local Grade",
+     "valueId": "40553c59-5155-4004-a841-6491941fb1bd",
+     "valueLabel": "PT_Tariff"
+    },
+    {
+     "fieldId": "586a99a5e4b05fd937b86099",
+     "fieldLabel": "Division",
+     "valueId": "TT",
+     "valueLabel": "HC"
+    }
+   ],
+   "visibility": "PUBLIC",
+   "ref": "https://api.smartrecruiters.com/v1/companies/BoschGroup/postings/744000152769070",
+   "language": {
+    "code": "en",
+    "label": "English",
+    "labelNative": "English (US)"
+   }
+  },
+  {
+   "id": "744000152763237",
+   "name": "ESTÁGIO SUPERIOR - VENDAS (334569)",
+   "uuid": "d1850982-88de-4a6c-9223-819b2b9a83c4",
+   "jobAdId": "4b71d09a-6727-4558-b750-0401acd752ed",
+   "defaultJobAd": true,
+   "refNumber": "REF297486E",
+   "company": {
+    "identifier": "BoschGroup",
+    "name": "Bosch Group"
+   },
+   "releasedDate": "2026-09-30T20:46:42.366Z",
+   "location": {
+    "city": "Sorocaba",
+    "region": "SP",
+    "country": "br",
+    "address": "Avenida Conde Zeppelin 1935",
+    "postalCode": "18103-008",
+    "remote": false,
+    "hybrid": false,
+    "latitude": "-23.4295293",
+    "longitude": "-47.3939051",
+    "fullLocation": "Sorocaba, SP, Brazil"
+   },
+   "industry": {
+    "id": "mechanical_engineering",
+    "label": "Mechanical Or Industrial Engineering"
+   },
+   "department": {},
+   "function": {
+    "id": "information_technology",
+    "label": "Information Technology"
+   },
+   "typeOfEmployment": {
+    "id": "permanent",
+    "label": "Full-time"
+   },
+   "experienceLevel": {
+    "id": "internship",
+    "label": "Internship"
+   },
+   "customField": [
+    {
+     "fieldId": "5abe2a4ab60a5e486a2d9b1d",
+     "fieldLabel": "Contract type",
+     "valueId": "98487475-2a49-44f5-a615-408b525b3821",
+     "valueLabel": "Limited"
+    },
+    {
+     "fieldId": "5abe28e96d8bc56863dd9746",
+     "fieldLabel": "Tariff Area",
+     "valueId": "89e3308f-77ac-4db2-9957-49b221a76b0f",
+     "valueLabel": "Brazil Local Grades"
+    },
+    {
+     "fieldId": "586a997ee4b05fd937b86098",
+     "fieldLabel": "Legal Entity(acronym)",
+     "valueId": "38927231-85be-42a9-b2b0-8655d72a53e1",
+     "valueLabel": "ASBR"
+    },
+    {
+     "fieldId": "586a99b5e4b0daa006ae1079",
+     "fieldLabel": "Working Location",
+     "valueId": "80a28e96-d191-450b-99ad-0d94411f73a3",
+     "valueLabel": "Sorocaba"
+    },
+    {
+     "fieldId": "5abe295a6d8bc56863dd9747",
+     "fieldLabel": "Global Salary Level",
+     "valueId": "4319a4d2-6690-4a34-ac0f-9d8c126f1af2",
+     "valueLabel": "Junior/ Lower Tariff"
+    },
+    {
+     "fieldId": "69ca83a2489188782a1e9f87",
+     "fieldLabel": "Direct Or Indirect",
+     "valueId": "1aefbf4c-c10a-422e-a975-a504a7117792",
+     "valueLabel": "Indirect"
+    },
+    {
+     "fieldId": "5abe29f9b60a5e486a2d9b1c",
+     "fieldLabel": "Working hours",
+     "valueId": "36d67fff-2442-44b6-b51d-8070aeaca6e6",
+     "valueLabel": "Part-time"
+    },
+    {
+     "fieldId": "586a9995e4b0daa006ae1078",
+     "fieldLabel": "Legal Entity",
+     "valueId": "0a751f10-51aa-44ed-876a-4e389762d3e9",
+     "valueLabel": "RB Direção Automotiva Ltd"
+    },
+    {
+     "fieldId": "691cf1c93001c782b9560ab7",
+     "fieldLabel": "Division full name",
+     "valueId": "15bcc29d-90ec-4da5-9bc5-72863bc810d9",
+     "valueLabel": "Vehicle Motion"
+    },
+    {
+     "fieldId": "5abe27936d8bc56863dd9745",
+     "fieldLabel": "Position type",
+     "valueId": "f524b939-fe55-407b-a0b0-e8f4eec28997",
+     "valueLabel": "Intern"
+    },
+    {
+     "fieldId": "COUNTRY",
+     "fieldLabel": "Country/Region",
+     "valueId": "br",
+     "valueLabel": "Brazil"
+    },
+    {
+     "fieldId": "586a971ee4b0daa006ae1077",
+     "fieldLabel": "Brands",
+     "valueId": "default",
+     "valueLabel": "Bosch Group"
+    },
+    {
+     "fieldId": "586a996ce4b05fd937b86097",
+     "fieldLabel": "Working Country",
+     "valueId": "38ffb1d7-cfdc-48e1-a641-1e66623f5afb",
+     "valueLabel": "Brazil"
+    },
+    {
+     "fieldId": "586a9b22e4b05fd937b8609a",
+     "fieldLabel": "Local Grade",
+     "valueId": "47e2ff4a-4152-43cd-b33d-0c9eac51fc59",
+     "valueLabel": "BR_EB"
+    },
+    {
+     "fieldId": "586a99a5e4b05fd937b86099",
+     "fieldLabel": "Division",
+     "valueId": "CC",
+     "valueLabel": "VM"
+    }
+   ],
+   "visibility": "PUBLIC",
+   "ref": "https://api.smartrecruiters.com/v1/companies/BoschGroup/postings/744000152763237",
+   "creator": {
+    "name": "GIOVANA LETICIA YOSHINAGA ALVES (GS/HRS1-LA)"
+   },
+   "language": {
+    "code": "pt-BR",
+    "label": "Portuguese (Brazil)",
+    "labelNative": "português (Brasil)"
+   }
+  }
+ ]
+}

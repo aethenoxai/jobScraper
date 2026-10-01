@@ -1,0 +1,152 @@
+{
+ "comments": "21/08/2026: Cursor pagination is now available and is the preferred way to page through the feed. Pass the nextCursor value from each response back as ?cursor=. It is faster than offset and will never return the same job twice. The offset parameter is deprecated and will be removed in a future release. 13/03/2026: The API has been updated to include the companySlug field in the response.",
+ "updatedAt": 1790800441,
+ "offset": 0,
+ "limit": 3,
+ "totalCount": 93089,
+ "nextCursor": "MjAyNi0wOS0zMFQyMDozMzo1MS4xNDA5MzhafDIzMDAzMzA",
+ "jobs": [
+  {
+   "title": "Solution Architect",
+   "excerpt": "• 10+ years experience with Project Systems, WBS, etc.",
+   "companyName": "RxCloud",
+   "companySlug": "rxcloud",
+   "companyLogo": "https://cdn-images.himalayas.app/t9pv9meftigtdq55xcqsjwokpmzw",
+   "employmentType": "Full Time",
+   "minSalary": null,
+   "maxSalary": null,
+   "salaryPeriod": "annual",
+   "seniority": [
+    "Senior"
+   ],
+   "currency": null,
+   "locationRestrictions": [
+    "United States"
+   ],
+   "timezoneRestrictions": [
+    -10,
+    -9,
+    -8,
+    -7,
+    -6,
+    -5,
+    14
+   ],
+   "categories": [
+    "Solutions-Architect",
+    "SAP-Consultant",
+    "SAP-Solution-Architect",
+    "Sap-Functional-Consultant",
+    "SAP-Technical-Architect",
+    "IT-Solution-Architect",
+    "IT-Solutions-Architect",
+    "Strategic-Solution-Architect",
+    "Technical-Solution-Architect",
+    "Solutions-Architect-Specialist",
+    "Technical-Solutions-Architect",
+    "Solutions-Delivery-Architect",
+    "Solution-Architect-Lead"
+   ],
+   "parentCategories": [
+    "Developer"
+   ],
+   "description": "<ul>\n<li>10+ years experience with Project Systems, WBS, etc. from a cost capture and reporting perspective</li>\n<li>Must have experience with at least one S/4HANA implementation end-to-end project</li>\n<li>Experience working in a strict fit to Standard / hybrid agile mode is an added advantage.</li>\n<li>6-8 years of SAP Product Costing consulting experience with a minimum of 2 end-to-end implementations. Candidates with S4 HANA implementation experience would be preferred.</li>\n<li>Preference would be for candidates having a minimum of 2-3 years of functional experience in Product costing and Material Ledger.</li>\n<li>Should be well versed with end-to-end Product Costing processes including Material Ledger functionality with integration points with other modules like Product Planning, Materials Management, Finance, etc.</li>\n<li>Possess expert knowledge of BOMs, BOM versions, Activity types, Recipes, Resources, and process/production orders.</li>\n<li>Strong knowledge of CO-PP integration.</li>\n<li>End-to-end knowledge in RICEF development i.e. requirement gathering, FS preparation, testing, and business acceptance.</li>\n<li>Experience in solution design, configuration, integration, gap analysis, cutover, go live, testing, and support.</li>\n</ul><p>Originally posted on <a href=\"https://himalayas.app\">Himalayas</a></p>",
+   "pubDate": 1790800441,
+   "expiryDate": 1795984440,
+   "applicationLink": "https://himalayas.app/companies/rxcloud/jobs/solution-architect",
+   "guid": "https://himalayas.app/companies/rxcloud/jobs/solution-architect"
+  },
+  {
+   "title": "Product Safety & Quality Lead",
+   "excerpt": "About Inspectorio Inspectorio is the leading AI-powered supply chain platform optimizing performance, building resilience, and providing intelligence across production chains for global brands, retailers, and their multi-tier suppliers.",
+   "companyName": "Inspectorio",
+   "companySlug": "inspectorio",
+   "companyLogo": "https://cdn-images.himalayas.app/6kyxzeq5qj5zul0ggul23zc1l3rs",
+   "employmentType": "Full Time",
+   "minSalary": null,
+   "maxSalary": null,
+   "salaryPeriod": "annual",
+   "seniority": [
+    "Senior"
+   ],
+   "currency": null,
+   "locationRestrictions": [
+    "United Kingdom"
+   ],
+   "timezoneRestrictions": [
+    0
+   ],
+   "categories": [
+    "Product-Safety-Manager",
+    "Compliance-Manager",
+    "QA-Manager",
+    "Supply-Chain-Manager",
+    "Product-Manager",
+    "Global-Product-Safety-Lead",
+    "Lead-Quality-Engineer",
+    "Product-Safety-Science-Manager",
+    "Product-Quality-Leader",
+    "QA-Engineer",
+    "Quality-and-Safety-Manager"
+   ],
+   "parentCategories": [
+    "Legal",
+    "Developer",
+    "Operations",
+    "Product"
+   ],
+   "description": "<p><b><strong>About <a href=\"https://himalayas.app/companies/inspectorio\">Inspectorio</a></strong></b></p><p><a href=\"https://himalayas.app/companies/inspectorio\">Inspectorio</a> is the leading AI-powered supply chain platform optimizing performance, building resilience, and providing intelligence across production chains for global brands, retailers, and their multi-tier suppliers.</p><p>Our innovative platform seamlessly connects and digitizes supply chain processes to optimize decision-making, while providing real-time visibility and control over production chain operations.</p><p>Today, <a href=\"https://himalayas.app/companies/inspectorio\">Inspectorio</a> is used by over 12,000 customers, including some of the largest brands and retailers in the world.</p><p><b><strong>About the role</strong></b></p><p>We are looking for a Product Safety Strategy &amp; Go-to-Market Lead to join our Center of Excellence for Traceability, Sustainability, and Product Compliance. This role sits at the intersection of regulatory expertise and commercial impact — helping brands and retailers build credible, scalable product safety programmes while shaping how <a href=\"https://himalayas.app/companies/inspectorio\">Inspectorio</a> grows and wins in this space.<br>You will define our go-to-market approach for product safety and quality, support business development conversations, translate complex compliance requirements into practical client solutions, and help position <a href=\"https://himalayas.app/companies/inspectorio\">Inspectorio</a> as the partner of choice for brands navigating an increasingly demanding regulatory environment. This is a cross-functional role with direct exposure to Product, Sales, Marketing, and Customer Success — as well as external clients and prospects.<br>The ideal candidate combines deep hands-on knowledge of product safety, quality assurance, and global supply chains with the strategic thinking and commercial instinct to turn that expertise into market impact. You are equally comfortable in a client conversation as you are defining a programme framework. You may come from a consultancy, a testing and certification body, a lab agency, or a brand-side advisory function — and you are ready to help build something.</p><p><b><strong>What you'll do</strong></b></p><p><b><strong>Domain Expertise &amp; Advisory</strong></b></p><ul>\n<li>Serve as a subject matter expert on product safety and quality within consumer goods and hardlines.</li>\n<li>Bring practical knowledge of production environments, inspection processes, and safety considerations across the supply chain.</li>\n<li>Provide guidance on product integrity, risk mitigation, and compliance best practices.</li>\n<li>Monitor industry and regulatory trends impacting product safety and quality, helping translate them into actionable insights.</li>\n</ul><p><b><strong>CoE Development &amp; Cross-Functional Collaboration</strong></b></p><ul>\n<li>Contribute to shaping the focus areas, structure, and",
+   "pubDate": 1790800433,
+   "expiryDate": 1795984433,
+   "applicationLink": "https://himalayas.app/companies/inspectorio/jobs/product-safety-quality-lead",
+   "guid": "https://himalayas.app/companies/inspectorio/jobs/product-safety-quality-lead"
+  },
+  {
+   "title": "Developer Java Web",
+   "excerpt": "Estamos a contratar: Developer Java WebLocalização: Portugal Regime: 100% remoto em Portugal 👉 Oportunidade também aberta a profissionais no Brasil com interesse e disponibilidade para se relocalizarem para Portugal.",
+   "companyName": "Elevus",
+   "companySlug": "elevus",
+   "companyLogo": "https://cdn-images.himalayas.app/1w6xz3bvkviypnry7xtbx8uiwtno",
+   "employmentType": "Full Time",
+   "minSalary": null,
+   "maxSalary": null,
+   "salaryPeriod": "annual",
+   "seniority": [
+    "Senior"
+   ],
+   "currency": null,
+   "locationRestrictions": [
+    "United States"
+   ],
+   "timezoneRestrictions": [
+    -10,
+    -9,
+    -8,
+    -7,
+    -6,
+    -5,
+    14
+   ],
+   "categories": [
+    "Java-Developer",
+    "Java-Web-Development",
+    "Software-Developer",
+    "Backend-Engineer",
+    "Java-EE-Developer",
+    "Java-Development",
+    "Java-Application-Developer",
+    "Web-Application-Developer",
+    "Java-Based-Application-Developer",
+    "Java-Programmer"
+   ],
+   "parentCategories": [
+    "Developer"
+   ],
+   "description": "<h3>Estamos a contratar: Developer Java Web</h3><p><strong>Localização:</strong> Portugal<br><strong>Regime:</strong> 100% remoto em Portugal<br><strong>👉 Oportunidade também aberta a profissionais no Brasil com interesse e disponibilidade para se relocalizarem para Portugal.</strong></p><p>Estamos à procura de um <strong>Programador Java Web</strong> com experiência sólida no desenvolvimento de aplicações empresariais em ambiente Java.</p><p>Se tens experiência com <strong>Java EE, JPA/Hibernate, JSF/PrimeFaces e SQL</strong> e procuras uma oportunidade que te permita desenvolver a tua carreira em Portugal, esta posição pode ser para ti.</p><h3>Sobre a Oportunidade</h3><p>Irás participar no desenvolvimento e manutenção de aplicações web, contribuindo para a evolução de soluções robustas e integradas.</p><p>Terás contacto com diferentes componentes do ecossistema Java EE, trabalhando em colaboração com equipas técnicas ao longo do ciclo de desenvolvimento.</p><h3>Responsabilidades</h3><ul>\n<li>Desenvolver e manter aplicações web em <strong>Java EE</strong>;</li>\n<li>Implementar componentes e serviços aplicacionais;</li>\n<li>Trabalhar com persistência e acesso a dados;</li>\n<li>Desenvolver interfaces web e lógica de negócio;</li>\n<li>Participar na integração entre sistemas e componentes;</li>\n<li>Apoiar testes, correção de incidentes e evolução das aplicações;</li>\n<li>Contribuir para a qualidade e manutenção do código.</li>\n</ul><h3>O que Procuramos</h3><ul>\n<li>Mais de <strong>5 anos de experiência em desenvolvimento Java</strong>;</li>\n<li>Experiência sólida com <strong>Java EE</strong>;</li>\n<li>Conhecimentos de <strong>CDI e EJB</strong>;</li>\n<li>Experiência com <strong>JPA/Hibernate</strong>;</li>\n<li>Conhecimentos de <strong>JSF e PrimeFaces</strong>;</li>\n<li>Experiência com <strong>JMS</strong>;</li>\n<li>Bons conhecimentos de <strong>SQL</strong>;</li>\n<li>Capacidade de análise, autonomia e trabalho em equipa;</li>\n<li>Para candidatos residentes no Brasil, <strong>disponibilidade e interesse em relocalização para Portugal</strong>.</li>\n</ul><h3>Será valorizado:</h3><ul>\n<li>Experiência em aplicações enterprise de elevada complexidade;</li>\n<li>Conhecimentos de integração entre sistemas;</li>\n<li>Experiência com boas práticas de desenvolvimento Java;</li>\n<li>Familiaridade com metodologias Agile.</li>\n</ul><h3>O que Oferecemos</h3><ul>\n<li>Regime 100% remoto em Portugal;</li>\n<li>Participação em projetos tecnologicamente exigentes;</li>\n<li>Contacto com aplicações empresariais de elevada complexidade;</li>\n<li>Oportunidades de evolução técnica e profissional;</li>\n<li>Ambiente colaborativo e orientado à qualidade.</li>\n</ul><p><strong>Queres continuar a evoluir em desenvolvimento Java e construir o teu percurso profissional em Portugal?</strong></p><p>Junta-te a nós e contribui para desenvolver aplicações web robustas, eficientes e escaláveis.</p><p>Originally posted on <a href=\"https://himalayas.app\">Himalayas</a></p>",
+   "pubDate": 1790800431,
+   "expiryDate": 1795984430,
+   "applicationLink": "https://himalayas.app/companies/elevus/jobs/developer-java-web",
+   "guid": "https://himalayas.app/companies/elevus/jobs/developer-java-web"
+  }
+ ]
+}

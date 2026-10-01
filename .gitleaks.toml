@@ -1,0 +1,8 @@
+# Secret scanning (CI runs `gitleaks git`). The default rules, minus values that are invented for tests:
+# fake API keys used to prove that logs scrub secrets, and the sample WebSocket key from RFC 6455.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Invented test values, not real secrets"
+regexes = ['''sk-live-ABCDEF123456''', '''sk-test-1234567890''', '''dGhlIHNhbXBsZSBub25jZQ==''']

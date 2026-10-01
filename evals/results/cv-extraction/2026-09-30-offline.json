@@ -1,0 +1,58 @@
+{
+  "label": "offline",
+  "meanF1": 1,
+  "hallucinations": 0,
+  "pass": true,
+  "rows": [
+    {
+      "slug": "software-engineer-india",
+      "method": "heuristic",
+      "tp": 12,
+      "fp": 0,
+      "fn": 0,
+      "f1": 1,
+      "misses": [],
+      "hallucinations": []
+    },
+    {
+      "slug": "nurse-uk",
+      "method": "heuristic",
+      "tp": 10,
+      "fp": 0,
+      "fn": 0,
+      "f1": 1,
+      "misses": [],
+      "hallucinations": []
+    },
+    {
+      "slug": "sales-manager-us",
+      "method": "heuristic",
+      "tp": 10,
+      "fp": 0,
+      "fn": 0,
+      "f1": 1,
+      "misses": [],
+      "hallucinations": []
+    },
+    {
+      "slug": "data-analyst-graduate",
+      "method": "heuristic",
+      "tp": 10,
+      "fp": 0,
+      "fn": 0,
+      "f1": 1,
+      "misses": [],
+      "hallucinations": []
+    },
+    {
+      "slug": "product-designer-remote",
+      "method": "heuristic",
+      "tp": 10,
+      "fp": 0,
+      "fn": 0,
+      "f1": 1,
+      "misses": [],
+      "hallucinations": []
+    }
+  ]
+}

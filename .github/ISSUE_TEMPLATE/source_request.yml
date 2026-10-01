@@ -1,0 +1,22 @@
+name: Job source request
+description: Suggest a job board, ATS or API to add.
+labels: [source]
+body:
+  - type: input
+    id: source
+    attributes:
+      label: Source and link
+      placeholder: "e.g. Teamtailor job boards, https://…"
+    validations:
+      required: true
+  - type: textarea
+    id: access
+    attributes:
+      label: How can it be read?
+      description: An official API, a JSON feed, schema.org JobPosting data… and any terms or rate limits you know of. Sites that forbid automated access can't be added.
+    validations:
+      required: true
+  - type: input
+    id: region
+    attributes:
+      label: Countries or kinds of jobs it covers

@@ -1,0 +1,15 @@
+# Never copied into the image: secrets, personal data and local build output.
+.env
+.env.*
+!.env.example
+data
+backups
+.e2e-data
+node_modules
+.next
+.git
+.superpowers
+test-results
+playwright-report
+coverage
+*.log

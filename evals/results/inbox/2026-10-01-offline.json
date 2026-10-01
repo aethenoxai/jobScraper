@@ -1,0 +1,467 @@
+{
+  "label": "offline",
+  "accuracy": 0.9846153846153847,
+  "precision": {
+    "interview": 1,
+    "offer": 0.8571428571428571,
+    "rejection": 1
+  },
+  "pass": true,
+  "rows": [
+    {
+      "subject": "Thank you for applying to Example Co",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Application received: Data Analyst",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "We got your application!",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Your application has been submitted",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Re: Application – Sales Manager",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Confirmation of your application",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Thanks for applying!",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Application update",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Your application to Example Co",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Update on your application",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Backend Engineer – update",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Application status",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Regarding your application",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Data Analyst role",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Thank you for your interest",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Your candidacy",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Following up on your interview",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Interview invitation – Backend Engineer",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Next steps with Example Co",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Phone screen",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Quick chat?",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Your interview is confirmed",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Rescheduling your interview",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Second round",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Invitation: onsite visit",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Technical round",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Additional information needed",
+      "expected": "info_request",
+      "got": "info_request",
+      "confidence": 0.65,
+      "method": "rules"
+    },
+    {
+      "subject": "Online assessment",
+      "expected": "info_request",
+      "got": "info_request",
+      "confidence": 0.65,
+      "method": "rules"
+    },
+    {
+      "subject": "A few questions",
+      "expected": "info_request",
+      "got": "info_request",
+      "confidence": 0.65,
+      "method": "rules"
+    },
+    {
+      "subject": "Missing documents",
+      "expected": "info_request",
+      "got": "info_request",
+      "confidence": 0.65,
+      "method": "rules"
+    },
+    {
+      "subject": "Questionnaire",
+      "expected": "info_request",
+      "got": "info_request",
+      "confidence": 0.65,
+      "method": "rules"
+    },
+    {
+      "subject": "Portfolio",
+      "expected": "info_request",
+      "got": "info_request",
+      "confidence": 0.65,
+      "method": "rules"
+    },
+    {
+      "subject": "Visa status",
+      "expected": "info_request",
+      "got": "info_request",
+      "confidence": 0.65,
+      "method": "rules"
+    },
+    {
+      "subject": "Offer of employment",
+      "expected": "offer",
+      "got": "offer",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Congratulations!",
+      "expected": "offer",
+      "got": "offer",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Your offer from Example Co",
+      "expected": "offer",
+      "got": "offer",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Job offer – Staff Nurse",
+      "expected": "offer",
+      "got": "offer",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Offer letter",
+      "expected": "offer",
+      "got": "offer",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Top jobs for you this week",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.6,
+      "method": "rules"
+    },
+    {
+      "subject": "Reset your password",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "Example Co newsletter – October",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.6,
+      "method": "rules"
+    },
+    {
+      "subject": "Complete your profile",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "Your weekly digest",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "Event invitation: careers fair",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.6,
+      "method": "rules"
+    },
+    {
+      "subject": "Verify your email address",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "Survey: how was your experience?",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "New message from a recruiter",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "Webinar: acing your interviews",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.6,
+      "method": "rules"
+    },
+    {
+      "subject": "Your data request",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "Your application to Example Co",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Thank you for applying",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Application received – Product Designer",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "Update on your application",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Offer of employment",
+      "expected": "offer",
+      "got": "offer",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Our call on Thursday",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "Change of plans",
+      "expected": "interview",
+      "got": "interview",
+      "confidence": 0.7,
+      "method": "rules"
+    },
+    {
+      "subject": "10 new jobs matching your search",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.6,
+      "method": "rules"
+    },
+    {
+      "subject": "Example Co careers newsletter",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.6,
+      "method": "rules"
+    },
+    {
+      "subject": "Your invoice from Example Co",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "Security alert",
+      "expected": "other",
+      "got": "other",
+      "confidence": 0.4,
+      "method": "rules"
+    },
+    {
+      "subject": "Regarding your application",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "One more thing",
+      "expected": "info_request",
+      "got": "info_request",
+      "confidence": 0.65,
+      "method": "rules"
+    },
+    {
+      "subject": "Application received",
+      "expected": "acknowledgement",
+      "got": "acknowledgement",
+      "confidence": 0.8,
+      "method": "rules"
+    },
+    {
+      "subject": "You have been selected!",
+      "expected": "other",
+      "got": "offer",
+      "confidence": 0.75,
+      "method": "rules"
+    },
+    {
+      "subject": "Your application",
+      "expected": "rejection",
+      "got": "rejection",
+      "confidence": 0.75,
+      "method": "rules"
+    }
+  ]
+}

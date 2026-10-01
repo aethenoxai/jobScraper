@@ -1,0 +1,1 @@
+ALTER TABLE `inbox_messages` ADD `method` text;

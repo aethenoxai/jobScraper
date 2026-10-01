@@ -1,0 +1,168 @@
+{
+ "id": "744000152779389",
+ "name": "Ingeniero de Mantenimiento de Edificios",
+ "uuid": "ac01d31d-a1bb-4981-9f96-5f7999d246b3",
+ "jobId": "aad4441b-e3f2-476b-b182-9de9b44530e9",
+ "jobAdId": "4ea414ac-9de4-4379-a93a-0cf9907f1018",
+ "defaultJobAd": true,
+ "refNumber": "REF297042F",
+ "company": {
+  "name": "Bosch Group",
+  "identifier": "BoschGroup"
+ },
+ "location": {
+  "city": "La Piedad",
+  "region": "Qro.",
+  "country": "mx",
+  "address": "Colon",
+  "postalCode": "76246",
+  "remote": false,
+  "hybrid": false,
+  "latitude": "20.5791572",
+  "longitude": "-100.2532967",
+  "fullLocation": "La Piedad, Qro., Mexico"
+ },
+ "customField": [
+  {
+   "fieldId": "5abe2a4ab60a5e486a2d9b1d",
+   "fieldLabel": "Contract type",
+   "valueId": "1e46492b-d24f-460c-b095-38cf08a778d8",
+   "valueLabel": "Unlimited"
+  },
+  {
+   "fieldId": "5abe28e96d8bc56863dd9746",
+   "fieldLabel": "Tariff Area",
+   "valueId": "540ff3f7-a953-4856-97e3-f2202d80c57c",
+   "valueLabel": "Mexico Local Grades"
+  },
+  {
+   "fieldId": "586a997ee4b05fd937b86098",
+   "fieldLabel": "Legal Entity(acronym)",
+   "valueId": "RBMX",
+   "valueLabel": "RBMX"
+  },
+  {
+   "fieldId": "586a99b5e4b0daa006ae1079",
+   "fieldLabel": "Working Location",
+   "valueId": "Queretaro",
+   "valueLabel": "Querétaro"
+  },
+  {
+   "fieldId": "5abe295a6d8bc56863dd9747",
+   "fieldLabel": "Global Salary Level",
+   "valueId": "427b1359-5057-4375-a2ae-6c649782296d",
+   "valueLabel": "Experienced/ Middle Tariff"
+  },
+  {
+   "fieldId": "69ca83a2489188782a1e9f87",
+   "fieldLabel": "Direct Or Indirect",
+   "valueId": "1aefbf4c-c10a-422e-a975-a504a7117792",
+   "valueLabel": "Indirect"
+  },
+  {
+   "fieldId": "5abe29f9b60a5e486a2d9b1c",
+   "fieldLabel": "Working hours",
+   "valueId": "60756b3e-dbab-4353-ac3a-0064d2bb27d8",
+   "valueLabel": "Full-time"
+  },
+  {
+   "fieldId": "586a9995e4b0daa006ae1078",
+   "fieldLabel": "Legal Entity",
+   "valueId": "Robert Bosch México, S.A. de C.V.",
+   "valueLabel": "Robert Bosch Mexico S.A. de C.V."
+  },
+  {
+   "fieldId": "691cf1c93001c782b9560ab7",
+   "fieldLabel": "Division full name",
+   "valueId": "b4bd3aa5-e828-4242-aaa0-694d1f3d77d7",
+   "valueLabel": "Global Real Estate"
+  },
+  {
+   "fieldId": "5abe27936d8bc56863dd9745",
+   "fieldLabel": "Position type",
+   "valueId": "c7b4da31-6f38-405a-b2e8-08a76e3c3f2c",
+   "valueLabel": "Professional"
+  },
+  {
+   "fieldId": "COUNTRY",
+   "fieldLabel": "Country/Region",
+   "valueId": "mx",
+   "valueLabel": "Mexico"
+  },
+  {
+   "fieldId": "586a971ee4b0daa006ae1077",
+   "fieldLabel": "Brands",
+   "valueId": "default",
+   "valueLabel": "Bosch Group"
+  },
+  {
+   "fieldId": "586a996ce4b05fd937b86097",
+   "fieldLabel": "Working Country",
+   "valueId": "MX",
+   "valueLabel": "Mexico"
+  },
+  {
+   "fieldId": "586a9b22e4b05fd937b8609a",
+   "fieldLabel": "Local Grade",
+   "valueId": "MX_E3",
+   "valueLabel": "MX_E3"
+  },
+  {
+   "fieldId": "586a99a5e4b05fd937b86099",
+   "fieldLabel": "Division",
+   "valueId": "def5147d-d289-4ac9-88f1-548f269ae9d7",
+   "valueLabel": "GR"
+  }
+ ],
+ "releasedDate": "2026-09-30T22:44:02.293Z",
+ "creator": {
+  "name": "",
+  "avatarUrl": ""
+ },
+ "postingUrl": "https://jobs.smartrecruiters.com/BoschGroup/744000152779389-ingeniero-de-mantenimiento-de-edificios",
+ "applyUrl": "https://jobs.smartrecruiters.com/BoschGroup/744000152779389-ingeniero-de-mantenimiento-de-edificios?oga=true",
+ "referralUrl": "https://jobs.smartrecruiters.com/external-referrals/company/BoschGroup/publication/ac01d31d-a1bb-4981-9f96-5f7999d246b3?dcr_ci=BoschGroup",
+ "jobAd": {
+  "sections": {
+   "companyDescription": {
+    "title": "Company Description",
+    "text": "<p>Bosch fue fundada en Stuttgart en 1886 por Robert Bosch (1861-1942), y por más de 130 años se ha distinguido por una cultura corporativa única, basada en valores sólidos que nos impulsan a mejorar cada día. Nuestros productos, presentes en una amplia variedad de terrenos, contribuyen a mejorar la calidad de vida de millones de personas.</p><p>¿Quieres que las nuevas tecnologías sean moldeadas por tus ideas? Ya sea en las áreas de soluciones de movilidad, bienes de consumo,<br>\ntecnología o energía y tecnología de la construcción. En Bosch, tendrás la oportunidad de mejorar la calidad de vida en todo el mundo. Bienvenido a Bosch.</p>"
+   },
+   "jobDescription": {
+    "title": "Job Description",
+    "text": "<p>Coordinar la construcción, mantenimiento y modificación de instalaciones eléctricas, así como desarrollo y diseño de proyectos de baja y media tensión a través de requerimientos específicos de instalación de maquinaria y equipo para lograr el cumplimiento de las normas oficiales mexicanas asi como otras disposiciones legales. Asegurar el control y aplicación del programa de mantenimiento preventivo acorde a matriz de todas las subestaciones eléctricas, tableros de distribución, tierras y pararrayos, filtros, UPS's, luminarias, transformadores, tomacorrientes, canalizaciones, charolas, registros eléctricos, sistema de medición de energía y sistema de gestion de energía, así como el mantenimiento correctivo de las mismas según los procedimientos internos de FCM dentro del tiempo establecido y administrando el presupuesto acorde a los rubros indicados en el BP anual, garantizando así, la operación confiable y suministro a las áreas productivas de QueP</p>"
+   },
+   "qualifications": {
+    "title": "Qualifications",
+    "text": "<p><strong>Requisitos:</strong></p><ul><li><strong>Escolaridad:</strong> Licenciatura (B.S.) Ingeniero Mecánico/Electromecánico/Mecatrónico</li><li><strong>Experiencia:</strong> Mínimo <strong>3 años de experiencia</strong> en funciones similares.</li></ul><p><strong>Habilidades y conocimientos:</strong></p><ul><li>Normatividad: NOM-001 SEDE, NOM-029 STPS, NOM-002 SEDE, NOM-022 STPS, NFPA70, NFPA70E, NOM-001 STPS.</li><li>Diseño, desarrollo y ejecución de proyectos eléctricos de&#xa0;media y baja tensión.</li><li>Operación, mantenimiento preventivo y correctivo a sistemas de transmisión distribución y equipos eléctricos de&#xa0;media y baja tensión.</li><li>Conocimiento de sistemas de protección contra cargas electrostáticas</li><li>Manejo y administración de mano de obra y contratistas</li></ul>"
+   },
+   "additionalInformation": {
+    "title": "Additional Information",
+    "text": ""
+   }
+  }
+ },
+ "active": true,
+ "visibility": "PUBLIC",
+ "industry": {
+  "id": "facilities_services",
+  "label": "Facilities Services"
+ },
+ "function": {
+  "id": "engineering",
+  "label": "Engineering"
+ },
+ "experienceLevel": {
+  "id": "associate",
+  "label": "Associate"
+ },
+ "typeOfEmployment": {
+  "id": "permanent",
+  "label": "Full-time"
+ },
+ "language": {
+  "code": "en",
+  "label": "English",
+  "labelNative": "English (US)"
+ }
+}

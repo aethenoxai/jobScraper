@@ -1,0 +1,40 @@
+# Job Scraper with Docker:
+#   cp .env.example .env && chmod 600 .env   # then add your API keys (optional)
+#   docker compose up -d      # first start builds the image (a few minutes)
+#   open http://127.0.0.1:3000
+services:
+  job-scraper:
+    build: .
+    image: job-scraper:local
+    env_file: .env
+    environment:
+      # These win over .env: the server must listen on all interfaces inside the container,
+      # which is safe only because the port below is published on this computer alone.
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATA_DIR: /app/data
+      JOB_SCRAPER_IN_DOCKER: "true"
+      JOB_SCRAPER_BROWSER_HEADLESS: "true"
+      # Your time zone, for quiet hours, daily limits and interview times (e.g. TZ=Europe/Berlin in .env).
+      TZ: ${TZ:-UTC}
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # Your database, CVs and generated documents. Kept across restarts and rebuilds;
+      # removed only by `docker compose down -v`.
+      - job-scraper-data:/app/data
+    # Chromium needs more shared memory than Docker's 64 MB default.
+    shm_size: 1gb
+    # A small init process reaps browser processes; a running application gets time to finish on stop.
+    init: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+    # Keep the container's logs from growing without limit (an always-on service).
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  job-scraper-data:
