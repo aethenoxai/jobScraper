@@ -23,10 +23,15 @@ export function enqueueMatching(queue: Queue, jobIds: number[], profileId?: numb
 
 const EvaluatePayload = z.object({ jobIds: z.array(z.number().int()), profileId: z.number().int().optional(), force: z.boolean().optional() });
 
-export function createMatchEvaluateHandler(deps: { matching: MatchService; profiles: ProfileService; onSurfaced: (matchIds: number[]) => void; failures?: FailureLog }): TaskHandler {
+/** False until onboarding is finished: no AI is spent and nothing is announced before the user presses Start. */
+type CanMatch = () => boolean;
+
+export function createMatchEvaluateHandler(deps: { matching: MatchService; profiles: ProfileService; onSurfaced: (matchIds: number[]) => void; failures?: FailureLog; canMatch?: CanMatch }): TaskHandler {
   return async (payload, { signal, log }) => {
     const parsed = EvaluatePayload.safeParse(payload);
     if (!parsed.success) throw new PermanentError('Invalid match.evaluate payload');
+    // Dropped, not delayed: reconciliation queues these jobs again once setup is finished.
+    if (deps.canMatch && !deps.canMatch()) return;
     const profiles = parsed.data.profileId ? deps.profiles.list().filter((p) => p.id === parsed.data.profileId) : deps.profiles.list();
     const surfaced: number[] = [];
     for (const jobId of parsed.data.jobIds) {
@@ -50,10 +55,11 @@ export function createMatchEvaluateHandler(deps: { matching: MatchService; profi
 const RescorePayload = z.object({ profileId: z.number().int(), force: z.boolean().optional() });
 
 /** Re-matches a profile: every active job when forced (the "Re-check all jobs" button), otherwise only stale ones. */
-export function createRescoreHandler(deps: { matching: MatchService; queue: Queue }): TaskHandler {
+export function createRescoreHandler(deps: { matching: MatchService; queue: Queue; canMatch?: CanMatch }): TaskHandler {
   return async (payload) => {
     const parsed = RescorePayload.safeParse(payload);
     if (!parsed.success) throw new PermanentError('Invalid match.rescore payload');
+    if (deps.canMatch && !deps.canMatch()) return;
     const { profileId, force } = parsed.data;
     enqueueMatching(deps.queue, force ? deps.matching.activeJobIds() : deps.matching.staleJobIds(profileId), profileId, { force });
   };
@@ -63,7 +69,8 @@ export function createRescoreHandler(deps: { matching: MatchService; queue: Queu
  * Queues matching for every job that is missing or stale for any profile (worker start, after scans).
  * Does nothing while matching is still queued: those tasks cover the same jobs.
  */
-export function reconcileMatches(deps: { matching: MatchService; profiles: ProfileService; queue: Queue }): number {
+export function reconcileMatches(deps: { matching: MatchService; profiles: ProfileService; queue: Queue; canMatch?: CanMatch }): number {
+  if (deps.canMatch && !deps.canMatch()) return 0;
   const busy = deps.queue.counts(MATCH_TASK);
   if (busy.pending + busy.running > 0) return 0;
   let tasks = 0;

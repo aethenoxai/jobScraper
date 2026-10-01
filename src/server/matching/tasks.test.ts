@@ -126,4 +126,17 @@ describe('matching tasks', () => {
     const first = queue.claim('w', [MATCH_TASK])?.payload as { jobIds: number[] };
     expect(first.jobIds).not.toContain(ids[0]);
   });
+
+  it('matches nothing before onboarding is finished (no AI spent, nothing announced); reconciliation catches up after', async () => {
+    const { matching, profiles, queue, ids } = setup();
+    const surfaced: number[][] = [];
+    const notYet = () => false;
+    await createMatchEvaluateHandler({ matching, profiles, onSurfaced: (m) => surfaced.push(m), canMatch: notYet })({ jobIds: ids }, ctx);
+    expect(profiles.list().flatMap((p) => matching.feed(p.id, { pageSize: 100 }).items)).toHaveLength(0);
+    expect(surfaced).toEqual([]);
+    await createRescoreHandler({ matching, queue, canMatch: notYet })({ profileId: profiles.list()[0].id }, ctx);
+    expect(queue.counts(MATCH_TASK).pending).toBe(0);
+    expect(reconcileMatches({ matching, profiles, queue, canMatch: notYet })).toBe(0);
+    expect(reconcileMatches({ matching, profiles, queue, canMatch: () => true })).toBeGreaterThan(0);
+  });
 });

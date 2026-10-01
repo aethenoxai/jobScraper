@@ -82,7 +82,8 @@ function CsvInput({ label, value, onChange, placeholder }: { label: string; valu
   );
 }
 
-export function ProfileEditor({ profileId, initial }: { profileId: number; initial: P }) {
+/** `afterSave` runs once the profile saved (setup uses it to move on); `submitLabel` names the button for that. */
+export function ProfileEditor({ profileId, initial, submitLabel = 'Save profile', afterSave }: { profileId: number; initial: P; submitLabel?: string; afterSave?: () => Promise<void> }) {
   const [p, setP] = useState<P>(initial);
   const [status, setStatus] = useState<{ ok: boolean; message?: string } | null>(null);
   const [pending, start] = useTransition();
@@ -95,6 +96,7 @@ export function ProfileEditor({ profileId, initial }: { profileId: number; initi
       const result = await saveProfileData(profileId, p);
       if (result.data) setP(result.data); // adopt ids assigned on the server
       setStatus(result);
+      if (result.ok && afterSave) await afterSave();
     });
 
   return (
@@ -283,7 +285,7 @@ export function ProfileEditor({ profileId, initial }: { profileId: number; initi
       </fieldset>
 
       <div className="sticky bottom-0 flex items-center gap-3 border-t border-neutral-200 bg-[var(--background)] py-3 dark:border-neutral-800">
-        <button type="submit" className={btnPrimary} disabled={pending}>{pending ? 'Saving…' : 'Save profile'}</button>
+        <button type="submit" className={btnPrimary} disabled={pending}>{pending ? 'Saving…' : submitLabel}</button>
         {status && <span role="status" className={`text-sm ${status.ok ? 'text-green-700 dark:text-green-400' : 'text-red-600'}`}>{status.message}</span>}
       </div>
     </form>

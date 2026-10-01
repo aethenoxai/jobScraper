@@ -158,7 +158,7 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
       log.info({ changedJobs: jobIds.length, matchTasks: tasks }, 'queued matching for new and changed jobs');
     },
     afterScan: () => {
-      reconcileMatches({ matching, profiles, queue });
+      reconcileMatches({ matching, profiles, queue, canMatch: canScan });
     },
     onSourceFailing: (source: { id: number; name: string }, error: string, disabled: boolean) =>
       notifier.notify('source.failing', `source:${source.id}:${today()}`, {
@@ -204,6 +204,7 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
           matching,
           profiles,
           failures,
+          canMatch: canScan,
           onSurfaced: (matchIds) => {
             log.info({ newMatches: matchIds.length }, 'new matching jobs');
             // The matches are already saved: a notification problem must not re-run (and so lose) them.
@@ -217,7 +218,7 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
         concurrency: 2,
         timeoutMs: 20 * MINUTE,
       },
-      [RESCORE_TASK]: { handle: createRescoreHandler({ matching, queue }), concurrency: 1, timeoutMs: MINUTE },
+      [RESCORE_TASK]: { handle: createRescoreHandler({ matching, queue, canMatch: canScan }), concurrency: 1, timeoutMs: MINUTE },
       [NOTIFY_SEND_TASK]: { handle: createNotifySendHandler(sendDeps), concurrency: 3, timeoutMs: MINUTE },
       [NOTIFY_FLUSH_TASK]: { handle: createNotifyFlushHandler(sendDeps), concurrency: 3, timeoutMs: 3 * MINUTE },
       [PREPARE_TASK]: { handle: createPrepareHandler(prepareDeps), concurrency: 2, timeoutMs: 10 * MINUTE },
@@ -302,7 +303,7 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
   };
   prune();
   timers.push(setInterval(prune, 24 * 60 * MINUTE));
-  const reconciled = reconcileMatches({ matching, profiles, queue });
+  const reconciled = reconcileMatches({ matching, profiles, queue, canMatch: canScan });
   if (reconciled > 0) log.info({ tasks: reconciled }, 'queued matching for jobs left unmatched');
   runner.start();
   const botAbort = new AbortController();

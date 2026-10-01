@@ -282,12 +282,13 @@ export function locationMatches(jobLocation: string | null | undefined, workMode
 }
 
 const UPPER = new Set(['ncr', 'dc']);
-const title = (name: string) => name.replace(/[\p{L}.']+/gu, (w) => (UPPER.has(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)));
+/** A place's name as shown in the pickers ("delhi ncr" → "Delhi NCR"). */
+export const displayPlace = (name: string) => name.replace(/[\p{L}.']+/gu, (w) => (UPPER.has(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)));
 
 /** Countries for the setup pickers, by name. */
 export function countryChoices(): Array<{ code: string; name: string }> {
   return Object.entries(COUNTRIES)
-    .map(([code, names]) => ({ code, name: title(names[0]) }))
+    .map(([code, names]) => ({ code, name: displayPlace(names[0]) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -297,7 +298,7 @@ export function placeChoices(code: string): { states: string[]; cities: string[]
   for (const [country, name] of Object.values(STATES)) if (country === code) states.add(name);
   for (const [name, country] of Object.entries(STATE_NAMES)) if (country === code) states.add(name);
   const cities = Object.entries(CITIES).filter(([, [country]]) => country === code).map(([city]) => city);
-  const sorted = (xs: Iterable<string>) => [...xs].map(title).sort((a, b) => a.localeCompare(b));
+  const sorted = (xs: Iterable<string>) => [...xs].map(displayPlace).sort((a, b) => a.localeCompare(b));
   return { states: sorted(states), cities: sorted(cities) };
 }
 
@@ -308,4 +309,17 @@ export function placeChoices(code: string): { states: string[]; cities: string[]
 export function composeLocations(country: string, states: string[], cities: string[]): string[] {
   const places = cities.length ? cities : states;
   return places.length ? places.map((p) => `${p}, ${country}`) : [country];
+}
+
+const EURO = ['DE', 'FR', 'NL', 'ES', 'IT', 'PT', 'IE', 'BE', 'AT', 'FI', 'GR', 'EE', 'LV', 'LT', 'SK', 'SI', 'LU', 'HR'];
+const CURRENCIES: Record<string, string> = {
+  IN: 'INR', US: 'USD', GB: 'GBP', CA: 'CAD', AU: 'AUD', NZ: 'NZD', SG: 'SGD', AE: 'AED', SA: 'SAR', QA: 'QAR', CH: 'CHF', SE: 'SEK', NO: 'NOK', DK: 'DKK', PL: 'PLN',
+  CZ: 'CZK', RO: 'RON', HU: 'HUF', JP: 'JPY', KR: 'KRW', CN: 'CNY', HK: 'HKD', TW: 'TWD', MY: 'MYR', ID: 'IDR', PH: 'PHP', TH: 'THB', VN: 'VND', PK: 'PKR', BD: 'BDT',
+  LK: 'LKR', NP: 'NPR', IL: 'ILS', TR: 'TRY', EG: 'EGP', ZA: 'ZAR', NG: 'NGN', KE: 'KES', MX: 'MXN', BR: 'BRL', AR: 'ARS', CO: 'COP', CL: 'CLP', PE: 'PEN', UA: 'UAH',
+  BG: 'BGN', RS: 'RSD', ...Object.fromEntries(EURO.map((c) => [c, 'EUR'])),
+};
+
+/** The usual currency of a country (for pre-filling the expected salary), or null. */
+export function currencyOf(code: string): string | null {
+  return CURRENCIES[code] ?? null;
 }
