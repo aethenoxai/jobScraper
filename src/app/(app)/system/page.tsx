@@ -7,6 +7,7 @@ import { getAppContext } from '@/server/context';
 import { createFailureLog, describeFailure } from '@/server/failures';
 import { describeInterval } from '@/server/scheduler';
 import { getSystemStatus } from '@/server/status';
+import { readScraplingStatus } from '@/server/scrapling/status';
 import { systemReport } from '@/server/status/report';
 import { versionInfo } from '@/server/status/version';
 
@@ -29,11 +30,17 @@ export default function SystemPage() {
   const failingSources = r.sources.filter((x) => x.enabled && x.consecutiveFailures > 0);
   const problems = createFailureLog(ctx.settings).recent().filter((p) => now - p.at < r.days * 86_400_000);
   const v = versionInfo();
+  const reader = readScraplingStatus(ctx.settings);
   return (
     <div className="max-w-5xl space-y-6">
       <AutoRefresh everyMs={30_000} />
       <PageHeader title="System" subtitle={`What Job Scraper has been doing over the last ${r.days} days, and anything that went wrong.`} />
       {!s.worker.online && <Notice tone="red">The worker is not running, so nothing is scanned, prepared or sent. Start Job Scraper with <code>pnpm start</code>.</Notice>}
+      {reader && !reader.ready && (
+        <Notice tone="red">
+          <span data-testid="system-scrapling-missing">Web discovery and Add by link can’t read job pages: {reader.error} Job boards still work. Run <code>pnpm run setup</code>, then restart Job Scraper.</span>
+        </Notice>
+      )}
 
       <Card title="Overview">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4" data-testid="system-overview">
@@ -41,6 +48,7 @@ export default function SystemPage() {
           <div><dt className="text-neutral-500">Job discovery</dt><dd>{s.scheduler.enabled ? describeInterval(s.scheduler.intervalMinutes) : 'Paused'}</dd></div>
           <div><dt className="text-neutral-500">Last scan</dt><dd>{s.lastScan ? `${s.lastScan.status} · ${formatWhen(s.lastScan.startedAt, now)}` : 'Never'}</dd></div>
           <div><dt className="text-neutral-500">AI spend today</dt><dd>{usd(r.ai.todayUsd)}</dd></div>
+          <div data-testid="system-page-reader"><dt className="text-neutral-500">Page reader</dt><dd>{!reader ? 'Not checked yet' : reader.ready ? `Scrapling ${reader.scrapling} · Python ${reader.python} · ready` : 'Not installed'}</dd></div>
         </dl>
       </Card>
 

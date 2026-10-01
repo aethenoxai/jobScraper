@@ -17,3 +17,10 @@ test('the System page shows the installed version and how to update', async ({ p
   await expect(version.getByRole('link', { name: 'See the latest release' })).toHaveAttribute('href', /\/releases\/latest$/);
   await expect(version.getByRole('link', { name: 'How to update' })).toHaveAttribute('href', /\/docs\/INSTALL\.md#updating$/);
 });
+
+test('the System page says whether job pages can be read (Scrapling)', async ({ page }) => {
+  await page.goto('/system');
+  // The worker checks Scrapling when it starts; the E2E run (like CI) has it installed.
+  await expect(page.getByTestId('system-page-reader')).toContainText(/Scrapling \d+\.\d+\.\d+ · Python 3\.\d+\.\d+ · ready/);
+  await expect(page.getByTestId('system-scrapling-missing')).toHaveCount(0);
+});
