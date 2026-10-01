@@ -4,7 +4,7 @@ import { NavMenu } from './nav-menu';
 import { InboxBadge } from './notifications/browser-notifier';
 
 const SECTIONS = [
-  { heading: null, links: [{ href: '/setup', label: 'Get started' }, { href: '/', label: 'Dashboard' }, { href: '/feed', label: 'Job feed' }, { href: '/applications', label: 'Applications' }, { href: '/jobs', label: 'All jobs' }, { href: '/profiles', label: 'Profiles' }, { href: '/system', label: 'System' }] },
+  { heading: null, links: [{ href: '/', label: 'Dashboard' }, { href: '/feed', label: 'Job feed' }, { href: '/applications', label: 'Applications' }, { href: '/jobs', label: 'All jobs' }, { href: '/profiles', label: 'Profiles' }, { href: '/system', label: 'System' }] },
   {
     heading: 'Settings',
     links: [

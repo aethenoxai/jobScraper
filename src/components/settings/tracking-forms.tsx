@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { checkInboxNowAction, saveTrackingSettingsAction } from '@/app/settings/tracking/actions';
+import { checkInboxNowAction, saveTrackingSettingsAction } from '@/app/(app)/settings/tracking/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
 
 export function TrackingSettingsForm({ inboxEnabled, autoUpdate, threshold, ready }: { inboxEnabled: boolean; autoUpdate: boolean; threshold: number; ready: boolean }) {

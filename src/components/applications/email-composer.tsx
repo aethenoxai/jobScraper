@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { sendEmailAction, type ActionResult } from '@/app/applications/actions';
+import { sendEmailAction, type ActionResult } from '@/app/(app)/applications/actions';
 import { btnPrimary, input } from '@/components/ui';
 import type { EmailDraft } from '@/server/applications/email-draft';
 

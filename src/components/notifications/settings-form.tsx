@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { saveNotificationSettings, sendTestNotification, type NotificationSettingsResult } from '@/app/notifications/actions';
+import { saveNotificationSettings, sendTestNotification, type NotificationSettingsResult } from '@/app/(app)/notifications/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
 import { EVENT_LABELS, NOTIFICATION_EVENTS, type NotificationSettings } from '@/server/notifications/settings';
 import { EnableBrowserNotifications, testBrowserNotification } from './browser-notifier';

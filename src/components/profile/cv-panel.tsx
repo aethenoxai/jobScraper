@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useActionState, useEffect } from 'react';
-import { uploadCv } from '@/app/profiles/actions';
+import { uploadCv } from '@/app/(app)/profiles/actions';
 import { btnPrimary } from '@/components/ui';
 
 /** Upload form; while a CV is being extracted it refreshes the page so the result appears by itself. */

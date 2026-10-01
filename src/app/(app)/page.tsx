@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { formatWhen } from '@/lib/format';
 import { getAppContext } from '@/server/context';
 import { describeFailure } from '@/server/failures';
@@ -16,8 +15,6 @@ const INTERVIEW_KINDS: Record<string, string> = { phone: 'Phone', video: 'Video'
 
 export default function Dashboard() {
   const ctx = getAppContext();
-  // A fresh install starts with the setup steps.
-  if (ctx.profiles.list().length === 0) redirect('/setup');
   const s = getSystemStatus(ctx);
   const jc = jobCounts(ctx.db, new Date(s.generatedAt));
   const failing = ctx.sources.list().filter((x) => x.enabled && x.lastStatus === 'failed');

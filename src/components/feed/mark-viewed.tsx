@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { markMatchViewed } from '@/app/feed/actions';
+import { markMatchViewed } from '@/app/(app)/feed/actions';
 
 /** Marks a match as seen once it is actually shown (never during server rendering or prefetching). */
 export function MarkViewed({ matchId }: { matchId: number }) {

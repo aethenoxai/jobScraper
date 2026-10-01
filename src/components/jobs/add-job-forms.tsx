@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { addJobUrl, pasteJob, type JobActionResult } from '@/app/jobs/actions';
+import { addJobUrl, pasteJob, type JobActionResult } from '@/app/(app)/jobs/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
 
 function Result({ state }: { state: JobActionResult | null }) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { sendTestEmailAction, type EmailActionResult } from '@/app/settings/email/actions';
+import { sendTestEmailAction, type EmailActionResult } from '@/app/(app)/settings/email/actions';
 import { btn } from '@/components/ui';
 
 export function EmailTestButton() {

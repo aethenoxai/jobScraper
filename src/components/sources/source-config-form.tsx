@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { createSource, updateSourceConfig, type SourceActionResult } from '@/app/sources/actions';
+import { createSource, updateSourceConfig, type SourceActionResult } from '@/app/(app)/sources/actions';
 import { btnPrimary, input } from '@/components/ui';
 
 export interface AdapterInfo {

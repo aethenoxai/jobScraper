@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useRef, useState, useTransition } from 'react';
-import { saveAiSettings, testAiConnection, type AiActionResult } from '@/app/settings/ai/actions';
+import { saveAiSettings, testAiConnection, type AiActionResult } from '@/app/(app)/settings/ai/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
 import { AI_PROVIDERS, DEFAULT_MODELS, PROVIDER_LABELS, type AiSettings } from '@/server/ai/settings';
 

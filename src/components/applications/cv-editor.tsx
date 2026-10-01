@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { saveCvAction, type SaveCvResult } from '@/app/applications/actions';
+import { saveCvAction, type SaveCvResult } from '@/app/(app)/applications/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
 import type { TailoredBullet, TailoredCv } from '@/server/tailoring/model';
 

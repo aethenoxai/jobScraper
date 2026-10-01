@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { savePreferences } from '@/app/profiles/actions';
+import { savePreferences } from '@/app/(app)/profiles/actions';
 import { btnPrimary, input } from '@/components/ui';
 import { describeSlider, SLIDER_RANGE } from '@/server/matching/slider';
 import { EMPLOYMENT_TYPES, WORK_MODES, type Preferences } from '@/server/profile/model';

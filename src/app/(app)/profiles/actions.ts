@@ -112,9 +112,11 @@ export async function duplicateProfile(profileId: number): Promise<void> {
 }
 
 export async function deleteProfile(profileId: number): Promise<void> {
-  await getAppContext().profiles.delete(profileId);
+  const { profiles } = getAppContext();
+  await profiles.delete(profileId);
   revalidatePath('/profiles');
-  redirect('/profiles');
+  // Without any profile there is nothing to search for: setup opens again at the CV step.
+  redirect(profiles.list().length ? '/profiles' : '/welcome');
 }
 
 export async function applyCvImport(profileId: number, masterCvId: number, formData: FormData): Promise<void> {

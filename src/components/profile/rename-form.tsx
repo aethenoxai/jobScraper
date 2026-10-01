@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { renameProfile } from '@/app/profiles/actions';
+import { renameProfile } from '@/app/(app)/profiles/actions';
 import { btn, input } from '@/components/ui';
 
 export function RenameForm({ profileId, name }: { profileId: number; name: string }) {

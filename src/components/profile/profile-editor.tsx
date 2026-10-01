@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, type ReactNode } from 'react';
-import { saveProfileData } from '@/app/profiles/actions';
+import { saveProfileData } from '@/app/(app)/profiles/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
 import { parseCsv, toBullets } from '@/lib/lists';
 import { CAREER_LEVELS, SKILL_CATEGORIES, type ProfileData } from '@/server/profile/model';

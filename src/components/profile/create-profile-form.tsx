@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { createProfile } from '@/app/profiles/actions';
+import { createProfile } from '@/app/(app)/profiles/actions';
 import { btnPrimary, input } from '@/components/ui';
 
 export function CreateProfileForm() {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { saveBrowserSettingsAction, signInToSiteAction } from '@/app/settings/browser/actions';
+import { saveBrowserSettingsAction, signInToSiteAction } from '@/app/(app)/settings/browser/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
 
 export function BrowserSettingsForm({ visible, dailyCap }: { visible: boolean; dailyCap: number }) {

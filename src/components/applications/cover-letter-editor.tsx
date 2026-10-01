@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { saveCoverLetterAction, type ActionResult } from '@/app/applications/actions';
+import { saveCoverLetterAction, type ActionResult } from '@/app/(app)/applications/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
 import type { CoverLetter } from '@/server/tailoring/cover-letter';
 

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { approveMatch, skipMatch, undoSkipMatch } from '@/app/feed/actions';
+import { approveMatch, skipMatch, undoSkipMatch } from '@/app/(app)/feed/actions';
 import { Badge, btn, btnPrimary } from '@/components/ui';
 import { formatWhen, placeOf } from '@/lib/format';
 import { STATUS_LABELS, type ApplicationStatus } from '@/server/applications/state';
