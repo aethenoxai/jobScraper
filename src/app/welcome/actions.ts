@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { disconnectChatGpt } from '@/server/ai/chatgpt-auth';
 import { connectAi } from '@/server/ai/connect';
 import { liveEnv, shellDefines, writeEnvValue } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
@@ -37,6 +38,12 @@ export async function connectAiStep(form: FormData): Promise<StepResult> {
   );
   if (result.ok) revalidatePath('/welcome');
   return result;
+}
+
+/** Step 1: forget the ChatGPT sign-in. */
+export async function disconnectChatGptStep(): Promise<void> {
+  disconnectChatGpt(getAppContext().settings);
+  revalidatePath('/welcome');
 }
 
 /** Step 2: store the CV; the worker reads it with the chosen model. */

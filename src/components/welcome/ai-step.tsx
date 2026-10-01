@@ -2,12 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { connectAiStep, type StepResult } from '@/app/welcome/actions';
-import { btnPrimary, Card, input } from '@/components/ui';
+import { connectAiStep, disconnectChatGptStep, type StepResult } from '@/app/welcome/actions';
+import { btn, btnPrimary, Card, input, Notice } from '@/components/ui';
 import { DEFAULT_MODELS, KEY_ENV_VAR, MODEL_CHOICES, PROVIDER_LABELS, type AiProvider, type AiSettings } from '@/server/ai/settings';
 
 type Provider = Exclude<AiProvider, 'none'>;
 const PROVIDERS: Array<{ id: Provider; hint: string; keyUrl?: string }> = [
+  { id: 'chatgpt', hint: 'Use your ChatGPT Plus or Pro plan: sign in with OpenAI, no API key.' },
+  { id: 'claude-code', hint: 'Use your Claude Pro or Max plan through the Claude Code installed on this computer.' },
   { id: 'openai', hint: 'GPT models with an OpenAI API key.', keyUrl: 'https://platform.openai.com/api-keys' },
   { id: 'anthropic', hint: 'Claude models with an Anthropic API key.', keyUrl: 'https://platform.claude.com/' },
   { id: 'google', hint: 'Gemini models with a Google AI Studio key.', keyUrl: 'https://aistudio.google.com/apikey' },
@@ -18,18 +20,47 @@ const PROVIDERS: Array<{ id: Provider; hint: string; keyUrl?: string }> = [
 const modelsFor = (p: Provider, initial: AiSettings) =>
   p === initial.provider ? { fast: initial.fastModel ?? DEFAULT_MODELS[p].fast ?? '', quality: initial.qualityModel ?? DEFAULT_MODELS[p].quality ?? '' } : { fast: DEFAULT_MODELS[p].fast ?? '', quality: DEFAULT_MODELS[p].quality ?? '' };
 
+export interface ClaudeCodeInfo {
+  installed: boolean;
+  loggedIn: boolean;
+  message: string;
+}
+
 /** Step 1: choose the AI that reads the CV and matches jobs; it is tested before going on. */
-export function AiStep({ initial, savedKeys, inDocker, connected }: { initial: AiSettings; savedKeys: Record<string, boolean>; inDocker: boolean; connected: string | null }) {
+export function AiStep({
+  initial,
+  savedKeys,
+  inDocker,
+  connected,
+  chatgpt,
+  claudeCode,
+  error,
+  justSignedIn = false,
+}: {
+  initial: AiSettings;
+  savedKeys: Record<string, boolean>;
+  inDocker: boolean;
+  connected: string | null;
+  /** The ChatGPT account signed in, if any. */
+  chatgpt: { email: string | null; needsReconnect: boolean } | null;
+  /** Claude Code on this computer (null in Docker, where it can't be used). */
+  claudeCode: ClaudeCodeInfo | null;
+  /** A message from a sign-in that came back with a problem. */
+  error: string | null;
+  /** Back from signing in with ChatGPT: that's the provider being set up. */
+  justSignedIn?: boolean;
+}) {
   const router = useRouter();
-  const [provider, setProvider] = useState<Provider>(initial.provider === 'none' ? 'openai' : initial.provider);
+  const [provider, setProvider] = useState<Provider>(justSignedIn ? 'chatgpt' : initial.provider === 'none' ? 'openai' : initial.provider);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl ?? '');
-  const [models, setModels] = useState(modelsFor(provider, initial));
+  const [models, setModels] = useState(() => modelsFor(justSignedIn ? 'chatgpt' : initial.provider === 'none' ? 'openai' : initial.provider, initial));
   const [result, setResult] = useState<StepResult | null>(null);
   const [pending, start] = useTransition();
   const keyVar = KEY_ENV_VAR[provider];
   const needsUrl = provider === 'ollama' || provider === 'openai-compatible';
   const keySaved = !!savedKeys[provider];
+  const blocked = (provider === 'chatgpt' && (!chatgpt || chatgpt.needsReconnect)) || (provider === 'claude-code' && !claudeCode?.loggedIn);
 
   const choose = (p: Provider) => {
     setProvider(p);
@@ -60,6 +91,7 @@ export function AiStep({ initial, savedKeys, inDocker, connected }: { initial: A
         }}
       >
         {connected && <p className="text-sm text-green-700 dark:text-green-400">Connected: {connected}. Change it here, or go on with the next step.</p>}
+        {error && <Notice tone="red">{error}</Notice>}
         <fieldset className="grid gap-2 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-medium">Provider</legend>
           {PROVIDERS.map((p) => (
@@ -72,6 +104,41 @@ export function AiStep({ initial, savedKeys, inDocker, connected }: { initial: A
             </label>
           ))}
         </fieldset>
+
+        {provider === 'chatgpt' && (
+          <div className="space-y-2 text-sm" data-testid="chatgpt-panel">
+            {chatgpt && !chatgpt.needsReconnect ? (
+              <p className="flex flex-wrap items-center gap-3">
+                <span>Signed in{chatgpt.email ? ` as ${chatgpt.email}` : ''}.</span>
+                <button type="button" className={btn} onClick={() => start(async () => void (await disconnectChatGptStep()))}>Disconnect</button>
+              </p>
+            ) : (
+              <p className="flex flex-wrap items-center gap-3">
+                <a className={btnPrimary} href="/api/oauth/chatgpt/start">Sign in with ChatGPT</a>
+                <span className="text-xs text-neutral-500">{chatgpt?.needsReconnect ? 'OpenAI ended the earlier sign-in: sign in again.' : 'Opens OpenAI’s page; you come back here afterwards.'}</span>
+              </p>
+            )}
+            <p className="text-xs text-neutral-500">Calls count against your ChatGPT plan’s usage. Job Scraper stops after a daily number of calls (Settings → AI provider) so it can’t use up your plan.</p>
+          </div>
+        )}
+
+        {provider === 'claude-code' && (
+          <div className="space-y-2 text-sm" data-testid="claude-code-panel">
+            {inDocker || !claudeCode ? (
+              <p>Claude Code can’t be used from Docker. Use the native install, or another provider.</p>
+            ) : (
+              <>
+                <p className={claudeCode.loggedIn ? 'text-green-700 dark:text-green-400' : ''}>{claudeCode.message}</p>
+                {!claudeCode.loggedIn && (
+                  <button type="button" className={btn} onClick={() => router.refresh()}>Check again</button>
+                )}
+              </>
+            )}
+            <p className="text-xs text-neutral-500">
+              Job Scraper runs your own Claude Code (<code>claude -p</code>) and never sees your Claude password or tokens. Calls count against your Claude plan’s limits, and Job Scraper stops after a daily number of calls. Anthropic sets the terms for using Claude Code from other tools and may change them.
+            </p>
+          </div>
+        )}
 
         {keyVar &&
           (inDocker ? (
@@ -121,7 +188,7 @@ export function AiStep({ initial, savedKeys, inDocker, connected }: { initial: A
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button type="submit" className={btnPrimary} disabled={pending}>{pending ? 'Testing…' : 'Test and continue'}</button>
+          <button type="submit" className={btnPrimary} disabled={pending || blocked}>{pending ? 'Testing…' : 'Test and continue'}</button>
           {result && (
             <span role="status" className={`text-sm ${result.ok ? 'text-green-700 dark:text-green-400' : 'text-red-600'}`}>
               {result.message}

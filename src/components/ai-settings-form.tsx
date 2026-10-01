@@ -1,11 +1,11 @@
 'use client';
 
 import { useActionState, useRef, useState, useTransition } from 'react';
-import { saveAiSettings, testAiConnection, type AiActionResult } from '@/app/(app)/settings/ai/actions';
+import { disconnectChatGptAction, saveAiSettings, testAiConnection, type AiActionResult } from '@/app/(app)/settings/ai/actions';
 import { btn, btnPrimary, input } from '@/components/ui';
-import { AI_PROVIDERS, DEFAULT_MODELS, PROVIDER_LABELS, type AiSettings } from '@/server/ai/settings';
+import { AI_PROVIDERS, DEFAULT_MODELS, PROVIDER_LABELS, SUBSCRIPTION_PROVIDERS, type AiSettings } from '@/server/ai/settings';
 
-export function AiSettingsForm({ initial }: { initial: AiSettings }) {
+export function AiSettingsForm({ initial, chatgpt, claudeCode }: { initial: AiSettings; chatgpt: { email: string | null; needsReconnect: boolean } | null; claudeCode: { loggedIn: boolean; message: string } | null }) {
   const [provider, setProvider] = useState(initial.provider);
   const [state, action, pending] = useActionState(saveAiSettings, null);
   const [test, setTest] = useState<AiActionResult | null>(null);
@@ -13,6 +13,7 @@ export function AiSettingsForm({ initial }: { initial: AiSettings }) {
   const form = useRef<HTMLFormElement>(null);
   const defaults = provider === 'none' ? null : DEFAULT_MODELS[provider];
   const needsBaseUrl = provider === 'ollama' || provider === 'openai-compatible';
+  const subscription = SUBSCRIPTION_PROVIDERS.includes(provider);
 
   return (
     <div className="space-y-4">
@@ -52,10 +53,30 @@ export function AiSettingsForm({ initial }: { initial: AiSettings }) {
                 <input name="baseUrl" className={input} defaultValue={initial.baseUrl ?? ''} placeholder={provider === 'ollama' ? 'http://127.0.0.1:11434/api' : 'https://your-server/v1'} />
               </label>
             )}
-            <label className="flex flex-col gap-1 text-sm">
-              Daily budget (USD, estimated; empty = no limit)
-              <input name="dailyBudgetUsd" type="number" min={0} step="any" className={input} defaultValue={initial.dailyBudgetUsd ?? ''} />
-            </label>
+            {provider === 'chatgpt' && (
+              <p className="flex flex-wrap items-center gap-3 text-sm sm:col-span-2" data-testid="chatgpt-account">
+                {chatgpt && !chatgpt.needsReconnect ? (
+                  <>
+                    Signed in{chatgpt.email ? ` as ${chatgpt.email}` : ''}.
+                    <button type="button" className={btn} onClick={() => void disconnectChatGptAction()}>Disconnect</button>
+                  </>
+                ) : (
+                  <a className={btn} href="/api/oauth/chatgpt/start?from=settings">Sign in with ChatGPT</a>
+                )}
+              </p>
+            )}
+            {provider === 'claude-code' && <p className="text-sm sm:col-span-2" data-testid="claude-code-status">{claudeCode?.message ?? 'Claude Code can’t be used from Docker.'}</p>}
+            {subscription ? (
+              <label className="flex flex-col gap-1 text-sm">
+                AI calls per day through your plan (empty = no limit)
+                <input name="dailyCallLimit" type="number" min={1} step={1} className={input} defaultValue={initial.dailyCallLimit ?? ''} />
+              </label>
+            ) : (
+              <label className="flex flex-col gap-1 text-sm">
+                Daily budget (USD, estimated; empty = no limit)
+                <input name="dailyBudgetUsd" type="number" min={0} step="any" className={input} defaultValue={initial.dailyBudgetUsd ?? ''} />
+              </label>
+            )}
           </>
         )}
         <div className="flex items-center gap-3 sm:col-span-2">

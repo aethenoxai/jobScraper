@@ -20,4 +20,11 @@ describe('mergeAiSettings', () => {
   it('rejects invalid input', () => {
     expect(() => mergeAiSettings(current, { provider: 'skynet' })).toThrow();
   });
+
+  it('reads the daily call limit for plan sign-ins (empty = no limit)', () => {
+    expect(mergeAiSettings(current, { provider: 'chatgpt', dailyCallLimit: '50' })).toMatchObject({ dailyCallLimit: 50 });
+    expect(mergeAiSettings(current, { provider: 'chatgpt', dailyCallLimit: '' })).toMatchObject({ dailyCallLimit: null });
+    expect(mergeAiSettings(current, { provider: 'chatgpt' })).toMatchObject({ dailyCallLimit: 300 });
+    expect(() => mergeAiSettings(current, { provider: 'chatgpt', dailyCallLimit: '0' })).toThrow();
+  });
 });

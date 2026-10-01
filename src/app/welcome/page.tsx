@@ -8,6 +8,8 @@ import { Progress, STEP_ORDER, type WizardStep } from '@/components/welcome/prog
 import { ReviewStep } from '@/components/welcome/review-step';
 import { StartStep } from '@/components/welcome/start-step';
 import { AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS, KEY_ENV_VAR } from '@/server/ai/settings';
+import { chatGptAccount } from '@/server/ai/chatgpt-auth';
+import { claudeCodeStatus } from '@/server/ai/claude-code';
 import { liveEnv } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 import { onboardingStatus } from '@/server/onboarding';
@@ -24,7 +26,9 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
   const status = onboardingStatus(ctx);
   if (status.step === 'done') redirect('/');
   const current = status.step as WizardStep;
-  const asked = (await searchParams).step;
+  const params = await searchParams;
+  const asked = params.step;
+  const inDocker = process.env.JOB_SCRAPER_IN_DOCKER === 'true';
   const step = typeof asked === 'string' && (STEP_ORDER as readonly string[]).includes(asked) && STEP_ORDER.indexOf(asked as WizardStep) < STEP_ORDER.indexOf(current) ? (asked as WizardStep) : current;
   const ai = ctx.ai.status();
 
@@ -40,8 +44,12 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
         <AiStep
           initial={ctx.settings.get(AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS)}
           savedKeys={Object.fromEntries(Object.entries(KEY_ENV_VAR).map(([p, v]) => [p, !!liveEnv()[v]]))}
-          inDocker={process.env.JOB_SCRAPER_IN_DOCKER === 'true'}
+          inDocker={inDocker}
           connected={status.state.aiVerifiedAt !== null && ai.configured ? `${ai.provider} · ${ai.models.fast} / ${ai.models.quality}` : null}
+          chatgpt={chatGptAccount(ctx.settings)}
+          claudeCode={inDocker ? null : await claudeCodeStatus()}
+          error={typeof params.error === 'string' ? params.error.slice(0, 300) : null}
+          justSignedIn={params.chatgpt === 'connected'}
         />
       )}
       {step === 'cv' && (

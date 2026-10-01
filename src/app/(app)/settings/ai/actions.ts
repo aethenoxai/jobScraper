@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS, mergeAiSettings, type AiSettings } from '@/server/ai';
+import { disconnectChatGpt } from '@/server/ai/chatgpt-auth';
 import { testAiSettings } from '@/server/ai/connect';
 import { liveEnv } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
@@ -36,4 +37,9 @@ export async function testAiConnection(formData: FormData): Promise<AiActionResu
     return { ok: false, message: 'Please check the form: a value is invalid (e.g. the base URL or budget).' };
   }
   return testAiSettings({ db, settings, log, env: () => liveEnv() }, candidate);
+}
+
+export async function disconnectChatGptAction(): Promise<void> {
+  disconnectChatGpt(getAppContext().settings);
+  revalidatePath('/settings/ai');
 }

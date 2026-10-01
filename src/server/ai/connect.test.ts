@@ -110,4 +110,11 @@ describe('connectAi: the setup step that chooses and tests an AI model', () => {
       expect(MODEL_CHOICES[p]).toContain(DEFAULT_MODELS[p].quality);
     }
   });
+
+  it('a plan sign-in must exist before ChatGPT can be tested, and needs no key', async () => {
+    const s = setup();
+    expect(await connectAi(s.deps, { provider: 'chatgpt' })).toEqual({ ok: false, message: expect.stringMatching(/sign in with chatgpt/i) });
+    expect(s.written).toEqual([]);
+    expect(readOnboarding(s.settings)).toBeNull();
+  });
 });
