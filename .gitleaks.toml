@@ -10,3 +10,8 @@ regexes = [
   # Pasted-key and ChatGPT-token stand-ins in the setup and sign-in tests.
   '''sk-(?:pasted|other)-123456''', '''sk-never-logged-987''', '''(?:at|rt)-(?:fresh|once|second|winner)-123456''',
 ]
+
+[[allowlists]]
+description = "Placeholder token in the vendored Scrapling skill's docs (.claude/skills/scrapling-official/references/mcp-server.md)"
+regexTarget = "line"
+regexes = ['''SCRAPLING_MCP_AUTH_TOKEN="<your-token>"''']
