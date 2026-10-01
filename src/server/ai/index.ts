@@ -100,13 +100,14 @@ export function createAi(deps: {
   db: Db;
   settings: SettingsStore;
   log: Logger;
-  env?: Record<string, string | undefined>;
+  /** The environment holding the keys; a function is asked on every use, so keys added to .env apply at once. */
+  env?: Record<string, string | undefined> | (() => Record<string, string | undefined>);
   now?: () => Date;
   modelFactory?: ModelFactory;
   /** Called (with the budget) whenever the daily budget stops a call. */
   onBudgetExceeded?: (budgetUsd: number) => void;
 }): Ai {
-  const env = deps.env ?? process.env;
+  const readEnv = () => (typeof deps.env === 'function' ? deps.env() : (deps.env ?? process.env));
   const now = deps.now ?? (() => new Date());
   const factory = deps.modelFactory ?? defaultModelFactory;
   const readSettings = () => deps.settings.get(AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS);
@@ -128,9 +129,9 @@ export function createAi(deps: {
     const models = { fast: s.fastModel ?? defaults.fast, quality: s.qualityModel ?? defaults.quality };
     const keyEnvVar = KEY_ENV_VAR[s.provider] ?? null;
     // Local OpenAI-compatible servers often take no key: only its address is required.
-    const keyPresent = keyEnvVar && s.provider !== 'openai-compatible' ? !!env[keyEnvVar] : true;
+    const keyPresent = keyEnvVar && s.provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
     let reason: string | null = null;
-    if (!keyPresent) reason = `Add ${keyEnvVar} to your .env file and restart Job Scraper.`;
+    if (!keyPresent) reason = `Add ${keyEnvVar} to your .env file.`;
     else if (!models.fast || !models.quality) reason = 'Enter model names for this provider.';
     else if (s.provider === 'openai-compatible' && !s.baseUrl) reason = 'Enter the base URL of your OpenAI-compatible server.';
     return { ...base, configured: reason === null, reason, models, keyEnvVar, keyPresent };
@@ -166,7 +167,7 @@ export function createAi(deps: {
 
       try {
         const result = await generateText({
-          model: factory(s.provider, modelId, s, env),
+          model: factory(s.provider, modelId, s, readEnv()),
           output: Output.object({ schema: req.schema }),
           system: req.system,
           prompt: req.prompt,

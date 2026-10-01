@@ -1,5 +1,6 @@
 import { createAi, type Ai } from './ai';
 import { loadConfig, type Config } from './config';
+import { liveEnv } from './config/env-store';
 import { openDb, type Db } from './db';
 import { createLogger, type Logger } from './logging';
 import { createQueue, type Queue } from './queue';
@@ -51,7 +52,8 @@ export function getAppContext(): AppContext {
     const log = createLogger({ level: config.logLevel, format: config.logFormat, secrets: config.secrets, name: 'job-scraper-web' });
     // Any profile change (editor, CV import, preferences, duplicate) re-matches that profile in the worker.
     const profiles = createProfileService({ db, files, onChanged: (profileId) => queue.enqueue(RESCORE_TASK, { profileId }, { dedupeKey: `${RESCORE_TASK}:${profileId}` }) });
-    const ai = createAi({ db, settings, log });
+    // Keys pasted during setup are written to .env: read them from there on every use, no restart needed.
+    const ai = createAi({ db, settings, log, env: () => liveEnv() });
     const apps = createApplicationService({ db, files, queue, profiles });
     holder.__jobScraperContext = {
       config,

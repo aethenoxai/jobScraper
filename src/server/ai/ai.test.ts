@@ -55,6 +55,28 @@ describe('ai', () => {
     expect(noKey.reason).toContain('OPENAI_API_KEY');
   });
 
+  it('notices a key added after start (read from the environment on every check)', async () => {
+    const env: Record<string, string | undefined> = {};
+    const settings = createSettings(t.db);
+    settings.set(AI_SETTINGS_KEY, { provider: 'openai', fastModel: null, qualityModel: null, baseUrl: null, dailyBudgetUsd: null });
+    const keys: Array<string | undefined> = [];
+    const ai = createAi({
+      db: t.db,
+      settings,
+      log,
+      env: () => env,
+      modelFactory: (_p, _m, _s, e) => {
+        keys.push(e.OPENAI_API_KEY);
+        return mockModel('{"name":"Asha"}');
+      },
+    });
+    expect(ai.status().configured).toBe(false);
+    env.OPENAI_API_KEY = 'sk-added-later-123';
+    expect(ai.status().configured).toBe(true);
+    await ai.generateObject({ role: 'fast', task: 't', schema: z.object({ name: z.string() }), system: 's', prompt: 'p' });
+    expect(keys).toEqual(['sk-added-later-123']);
+  });
+
   it('ollama needs no key', () => {
     expect(setup({ provider: 'ollama', env: {} }).ai.status().configured).toBe(true);
   });

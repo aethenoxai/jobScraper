@@ -10,6 +10,7 @@ import { createScheduler, SCAN_TASK } from '@/server/scheduler';
 import { createSettings } from '@/server/settings';
 import { HEARTBEAT_GUARD_MS, HEARTBEAT_KEY, HeartbeatSchema, heartbeatLive, isProcessAlive, type Heartbeat } from '@/server/status/heartbeat';
 import { createAi } from '@/server/ai';
+import { liveEnv } from '@/server/config/env-store';
 import { createCvService, PROFILE_EXTRACT_TASK } from '@/server/profile/cv-service';
 import { createProfileService } from '@/server/profile/service';
 import { createFileStore } from '@/server/storage';
@@ -118,6 +119,8 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
     db: handle.db,
     settings,
     log,
+    // Keys pasted during setup land in .env while the worker runs: read them from there on every use.
+    env: opts.env ?? (() => liveEnv()),
     onBudgetExceeded: (budget) =>
       notifier.notify('budget.exhausted', `budget:${today()}`, { title: 'Daily AI budget reached', body: `$${budget.toFixed(2)} spent today. Job Scraper uses offline rules until tomorrow.`, link: '/settings/ai' }),
   });
