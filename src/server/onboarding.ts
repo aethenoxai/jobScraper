@@ -1,94 +1,76 @@
 /**
- * First-run setup (PRD §59, PLAN M10): the steps from install to a running job search, each worked out from what
- * is really saved, so progress survives restarts and other tabs. Nothing here is required to use the app; it only
- * guides a new user to their first match.
+ * First-run onboarding (PRD §7, §9, §59): AI model → CV → review the profile → what jobs to look for → start.
+ * Nothing is searched and no app page opens until it is done. Each step is worked out from what is really saved,
+ * so progress survives restarts and other tabs.
  */
 import { z } from 'zod';
-import { listSome, plural } from '../lib/format';
 import type { Ai } from './ai';
-import { AI_SETTINGS_KEY } from './ai/settings';
-import { NOTIFICATION_SETTINGS_KEY } from './notifications/settings';
-import type { ProfileService } from './profile/service';
-import type { Scheduler } from './scheduler';
+import type { CvService, MasterCvRecord } from './profile/cv-service';
+import type { ProfileRecord, ProfileService } from './profile/service';
 import type { SettingsStore } from './settings';
-import type { SourceService } from './sources/service';
 
-export interface OnboardingStep {
-  id: 'ai' | 'cv' | 'preferences' | 'sources' | 'notifications' | 'start';
-  title: string;
-  /** What to do, or what was done. */
-  detail: string;
-  done: boolean;
-  href: string;
+export const ONBOARDING_KEY = 'onboarding';
+
+export type OnboardingStep = 'ai' | 'cv' | 'review' | 'preferences' | 'start' | 'done';
+
+const At = z.number().int().nullable().default(null);
+const OnboardingStateSchema = z.object({
+  /** The profile created from the CV uploaded during onboarding. */
+  profileId: z.number().int().nullable().default(null),
+  aiVerifiedAt: At,
+  profileConfirmedAt: At,
+  preferencesConfirmedAt: At,
+  /** When the user pressed "Start job search". */
+  completedAt: At,
+});
+export type OnboardingState = z.infer<typeof OnboardingStateSchema>;
+
+const EMPTY: OnboardingState = { profileId: null, aiVerifiedAt: null, profileConfirmedAt: null, preferencesConfirmedAt: null, completedAt: null };
+
+/** The saved state, or null on an install that never started onboarding. */
+export function readOnboarding(settings: SettingsStore): OnboardingState | null {
+  return settings.get(ONBOARDING_KEY, OnboardingStateSchema.nullable(), null);
 }
 
-export interface OnboardingDeps {
-  settings: SettingsStore;
-  profiles: ProfileService;
-  sources: SourceService;
-  scheduler: Scheduler;
-  ai: Ai;
+export function updateOnboarding(settings: SettingsStore, fn: (s: OnboardingState) => OnboardingState): OnboardingState {
+  return settings.update(ONBOARDING_KEY, OnboardingStateSchema, EMPTY, (s) => OnboardingStateSchema.parse(fn(s)));
 }
 
-const saved = (settings: SettingsStore, key: string) => settings.get(key, z.unknown(), null) !== null;
+const filled = (p: ProfileRecord) => p.data.experience.length + p.data.skills.length + p.data.education.length > 0;
 
-export function onboardingSteps(deps: OnboardingDeps): { steps: OnboardingStep[]; complete: boolean; next: OnboardingStep | null } {
-  const ai = deps.ai.status();
-  const aiChosen = saved(deps.settings, AI_SETTINGS_KEY);
+/**
+ * Onboarded: the user pressed Start and a profile exists. An install from before onboarding existed counts when it
+ * already has a filled profile with target titles, so upgrading never locks anyone out.
+ */
+export function isOnboarded(deps: { settings: SettingsStore; profiles: Pick<ProfileService, 'list'> }): boolean {
+  const state = readOnboarding(deps.settings);
   const profiles = deps.profiles.list();
-  const filled = (p: (typeof profiles)[number]) => p.data.experience.length + p.data.skills.length + p.data.education.length > 0;
-  const titlesOf = (p: (typeof profiles)[number]) => [...p.preferences.targetTitles, ...p.data.targetTitles];
-  // Any profile counts (a user may have set up a second one rather than the default).
-  const profile = profiles.find((p) => filled(p) && titlesOf(p).length) ?? profiles.find(filled) ?? profiles.find((p) => p.isDefault) ?? profiles[0] ?? null;
-  const hasCv = !!profile && filled(profile);
-  const titles = profiles.flatMap(titlesOf);
-  const sources = deps.sources.list().filter((s) => s.enabled);
-  const scheduler = deps.scheduler.getState();
+  if (state) return state.completedAt !== null && profiles.length > 0;
+  return profiles.some((p) => filled(p) && p.preferences.targetTitles.length + p.data.targetTitles.length > 0);
+}
 
-  const steps: OnboardingStep[] = [
-    {
-      id: 'ai',
-      title: 'Choose an AI provider (or none)',
-      done: ai.configured || (aiChosen && ai.provider === 'none'),
-      detail: ai.configured ? `Using ${ai.provider} (${ai.models.fast}).` : aiChosen && ai.provider === 'none' ? 'Working without AI: matching and CVs use offline rules.' : 'AI improves matching and tailoring. Add a key in .env, or choose "No AI" to work offline.',
-      href: '/settings/ai',
-    },
-    {
-      id: 'cv',
-      title: 'Upload your CV',
-      done: hasCv,
-      detail: hasCv ? `Profile “${profile!.name}” has your experience and skills.` : 'Create a profile and upload your CV (PDF or Word); review what was read.',
-      href: profile ? `/profiles/${profile.id}` : '/profiles',
-    },
-    {
-      id: 'preferences',
-      title: 'Say what jobs you want',
-      done: titles.length > 0,
-      detail: titles.length ? `Looking for: ${listSome([...new Set(titles)])}.` : 'Add the job titles you want, where, and how closely jobs must match.',
-      href: profile ? `/profiles/${profile.id}#preferences` : '/profiles',
-    },
-    {
-      id: 'sources',
-      title: 'Pick where to look',
-      done: sources.length > 0,
-      detail: sources.length ? `${plural(sources.length, 'job source')} on.` : 'Turn on job sources, or add a company’s job board.',
-      href: '/sources',
-    },
-    {
-      id: 'notifications',
-      title: 'Choose how you hear about matches',
-      done: saved(deps.settings, NOTIFICATION_SETTINGS_KEY),
-      detail: saved(deps.settings, NOTIFICATION_SETTINGS_KEY) ? 'Chosen; change it any time.' : 'In the app by default; add desktop, email or Telegram if you like.',
-      href: '/settings/notifications',
-    },
-    {
-      id: 'start',
-      title: 'Start the job search',
-      done: scheduler.enabled,
-      detail: scheduler.enabled ? 'Job discovery is running.' : 'Start discovery: Job Scraper then checks for new jobs on its own.',
-      href: '/settings/scheduling',
-    },
-  ];
-  const next = steps.find((s) => !s.done) ?? null;
-  return { steps, complete: !next, next };
+export interface OnboardingStatus {
+  step: OnboardingStep;
+  state: OnboardingState;
+  /** The onboarding profile, once a CV was uploaded. */
+  profile: ProfileRecord | null;
+  /** Its latest CV. */
+  cv: MasterCvRecord | null;
+}
+
+export function onboardingStatus(deps: { settings: SettingsStore; profiles: ProfileService; cvs: Pick<CvService, 'list'>; ai: Pick<Ai, 'status'> }): OnboardingStatus {
+  const saved = readOnboarding(deps.settings);
+  const profile = saved?.profileId != null ? deps.profiles.get(saved.profileId) : null;
+  // Confirmations belong to the onboarding profile: without it they no longer count.
+  const state: OnboardingState = saved ? (profile ? saved : { ...saved, profileId: null, profileConfirmedAt: null, preferencesConfirmedAt: null }) : EMPTY;
+  const cv = profile ? (deps.cvs.list(profile.id)[0] ?? null) : null;
+  const status = (step: OnboardingStep): OnboardingStatus => ({ step, state, profile, cv });
+
+  if (isOnboarded(deps)) return status('done');
+  if (state.aiVerifiedAt === null || !deps.ai.status().configured) return status('ai');
+  const reading = cv?.status === 'uploaded' || cv?.status === 'extracting';
+  if (!profile || reading || !(cv?.status === 'applied' || filled(profile))) return status('cv');
+  if (state.profileConfirmedAt === null) return status('review');
+  if (state.preferencesConfirmedAt === null) return status('preferences');
+  return status('start');
 }
