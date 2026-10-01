@@ -34,6 +34,7 @@ import { createPdfRenderer, type PdfRenderer } from '@/server/tailoring/render';
 import { createMatchEvaluateHandler, createRescoreHandler, enqueueMatching, MATCH_TASK, reconcileMatches, RESCORE_TASK } from '@/server/matching/tasks';
 import { createMailer } from '@/server/email/mailer';
 import { createNotifier, NOTIFY_FLUSH_TASK, NOTIFY_SEND_TASK } from '@/server/notifications/dispatcher';
+import { isOnboarded } from '@/server/onboarding';
 import { notifyNewMatches } from '@/server/notifications/hooks';
 import { createDesktopNotifier, createNotifyFlushHandler, createNotifySendHandler } from '@/server/notifications/send';
 import { createTelegramBot } from '@/server/notifications/telegram/bot';
@@ -102,9 +103,11 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
   const recovered = queue.recoverStale(0); // single worker: anything "running" was interrupted
   if (recovered > 0) log.warn({ recovered }, 'requeued tasks interrupted by a previous shutdown');
 
-  const scheduler = createScheduler({ settings, queue });
   const files = createFileStore(config.filesDir);
   const profiles = createProfileService({ db: handle.db, files, onChanged: (profileId) => queue.enqueue(RESCORE_TASK, { profileId }, { dedupeKey: `${RESCORE_TASK}:${profileId}` }) });
+  // Nothing is searched before onboarding is finished (the web page and the worker check the same saved state).
+  const canScan = () => isOnboarded({ settings, profiles });
+  const scheduler = createScheduler({ settings, queue, canScan });
   const notifier = createNotifier({ db: handle.db, settings, queue });
   // Local calendar day (the AI budget resets at local midnight), for once-a-day alerts.
   const today = () => {
@@ -136,6 +139,7 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
   const telegramChatId = env.TELEGRAM_ALLOWED_CHAT_ID?.trim() || null;
   const failures = createFailureLog(settings);
   const discoveryDeps = {
+    canScan,
     failures,
     settings,
     db: handle.db,

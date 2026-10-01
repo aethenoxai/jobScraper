@@ -37,6 +37,14 @@ export function describeInterval(minutes: number): string {
   return `Every ${minutes} minutes`;
 }
 
+/** Job search is refused until onboarding is finished (AI, CV, profile, preferences, Start). */
+export class OnboardingIncompleteError extends Error {
+  override name = 'OnboardingIncompleteError';
+  constructor() {
+    super('Finish setting up Job Scraper first: the job search starts at the end of setup.');
+  }
+}
+
 export interface Scheduler {
   getState(): SchedulerState;
   start(): SchedulerState;
@@ -46,8 +54,18 @@ export interface Scheduler {
   tick(): boolean;
 }
 
-export function createScheduler(deps: { settings: SettingsStore; queue: Queue; now?: () => Date }): Scheduler {
+export function createScheduler(deps: {
+  settings: SettingsStore;
+  queue: Queue;
+  now?: () => Date;
+  /** False until onboarding is finished: nothing is searched before that. */
+  canScan?: () => boolean;
+}): Scheduler {
   const now = () => (deps.now ?? (() => new Date()))().getTime();
+  const allowed = () => deps.canScan?.() ?? true;
+  const requireAllowed = () => {
+    if (!allowed()) throw new OnboardingIncompleteError();
+  };
   const update = (fn: (s: SchedulerState) => SchedulerState) =>
     deps.settings.update(SCHEDULER_KEY, SchedulerStateSchema, DEFAULT_SCHEDULER_STATE, fn);
   const enqueueScan = (trigger: 'schedule' | 'manual') =>
@@ -56,7 +74,10 @@ export function createScheduler(deps: { settings: SettingsStore; queue: Queue; n
   return {
     getState: () => deps.settings.get(SCHEDULER_KEY, SchedulerStateSchema, DEFAULT_SCHEDULER_STATE),
 
-    start: () => update((s) => ({ ...s, enabled: true, nextRunAt: now() })),
+    start: () => {
+      requireAllowed();
+      return update((s) => ({ ...s, enabled: true, nextRunAt: now() }));
+    },
 
     stop: () => {
       const state = update((s) => ({ ...s, enabled: false, nextRunAt: null }));
@@ -74,9 +95,14 @@ export function createScheduler(deps: { settings: SettingsStore; queue: Queue; n
       });
     },
 
-    runNow: () => enqueueScan('manual'),
+    runNow: () => {
+      requireAllowed();
+      return enqueueScan('manual');
+    },
 
     tick() {
+      // The schedule stays as it is (an install may have pressed Start before onboarding existed) but runs nothing.
+      if (!allowed()) return false;
       let due = false;
       // Queued inside the same transaction: the schedule only moves on if the scan is really queued.
       update((s) => {

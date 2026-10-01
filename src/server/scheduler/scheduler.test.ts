@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
 import { createQueue } from '../queue';
 import { createSettings } from '../settings';
-import { createScheduler, DEFAULT_SCHEDULER_STATE, describeInterval, isValidInterval, SCAN_TASK } from './index';
+import { createScheduler, DEFAULT_SCHEDULER_STATE, describeInterval, isValidInterval, OnboardingIncompleteError, SCAN_TASK } from './index';
 
 let t: ReturnType<typeof createTempDb>;
 let clock: Date;
@@ -142,5 +142,35 @@ describe('interval helpers', () => {
     expect(describeInterval(60)).toBe('Every 1 hour');
     expect(describeInterval(120)).toBe('Every 2 hours');
     expect(describeInterval(90)).toBe('Every 90 minutes');
+  });
+});
+
+describe('scheduler before onboarding is finished', () => {
+  function gated() {
+    const gate = { open: false };
+    const settings = createSettings(t.db, { now });
+    const queue = createQueue(t.db, { now });
+    return { gate, queue, settings, scheduler: createScheduler({ settings, queue, now, canScan: () => gate.open }) };
+  }
+
+  it('an already running schedule queues no scan until onboarding is done, then carries on', () => {
+    const { gate, queue, settings } = gated();
+    // As in an install where Start was pressed before onboarding existed.
+    settings.set('scheduler', { enabled: true, intervalMinutes: 60, lastTriggeredAt: null, nextRunAt: clock.getTime() });
+    const scheduler = createScheduler({ settings, queue, now, canScan: () => gate.open });
+    expect(scheduler.tick()).toBe(false);
+    expect(pendingScans(queue)).toBe(0);
+    expect(scheduler.getState()).toMatchObject({ enabled: true, lastTriggeredAt: null });
+    gate.open = true;
+    expect(scheduler.tick()).toBe(true);
+    expect(pendingScans(queue)).toBe(1);
+  });
+
+  it('refuses Start and Run now with a clear error', () => {
+    const { scheduler, queue } = gated();
+    expect(() => scheduler.start()).toThrow(OnboardingIncompleteError);
+    expect(() => scheduler.runNow()).toThrow(/finish setting up/i);
+    expect(scheduler.getState().enabled).toBe(false);
+    expect(pendingScans(queue)).toBe(0);
   });
 });

@@ -15,10 +15,20 @@ import { readFileSync } from 'node:fs';
 import { createCvService } from '@/server/profile/cv-service';
 import { createProfileService } from '@/server/profile/service';
 import { createFileStore } from '@/server/storage';
+import { updateOnboarding } from '@/server/onboarding';
 import { startWorker, WorkerAlreadyRunningError } from './start';
 
 const log = createLogger({ level: 'silent' });
 const fast = { pollMs: 10, schedulerTickMs: 10, heartbeatMs: 50, log, seedDefaultSources: false };
+
+/** A finished onboarding: a profile exists and Start was pressed (scans are refused before that). */
+function onboard(dbPath: string) {
+  const h = openDb(dbPath);
+  const profiles = createProfileService({ db: h.db, files: createFileStore(path.join(path.dirname(dbPath), 'files')) });
+  const p = profiles.create('Main profile');
+  updateOnboarding(createSettings(h.db), (s) => ({ ...s, profileId: p.id, aiVerifiedAt: 1, profileConfirmedAt: 1, preferencesConfirmedAt: 1, completedAt: 1 }));
+  h.close();
+}
 let dir: string;
 let config: Config;
 
@@ -30,6 +40,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('startWorker', () => {
   it('runs scheduled scans once the user starts discovery', async () => {
+    onboard(config.dbPath);
     const worker = await startWorker({ config, ...fast });
     const web = openDb(config.dbPath);
     createScheduler({ settings: createSettings(web.db), queue: createQueue(web.db) }).start();
@@ -74,7 +85,23 @@ describe('startWorker', () => {
     await worker.stop();
   });
 
+  it('searches nothing before onboarding, even with a schedule switched on and a scan queued', async () => {
+    const db = openDb(config.dbPath);
+    createSettings(db.db).set('scheduler', { enabled: true, intervalMinutes: 60, lastTriggeredAt: null, nextRunAt: Date.now() });
+    createQueue(db.db).enqueue(SCAN_TASK, { trigger: 'manual' });
+    db.close();
+    const worker = await startWorker({ config, ...fast });
+    const check = openDb(config.dbPath);
+    await waitFor(() => (createQueue(check.db).counts().done === 1 ? true : null));
+    await new Promise((r) => setTimeout(r, 100)); // several scheduler ticks
+    expect(listRecentScanRuns(check.db)).toHaveLength(0);
+    expect(createQueue(check.db).counts().pending).toBe(0);
+    await worker.stop();
+    check.close();
+  });
+
   it('recovers a task interrupted by a crash', async () => {
+    onboard(config.dbPath);
     const db = openDb(config.dbPath);
     const queue = createQueue(db.db);
     queue.enqueue(SCAN_TASK, { trigger: 'manual' });

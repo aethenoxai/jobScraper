@@ -29,11 +29,11 @@ let t: ReturnType<typeof createTempDb>;
 beforeEach(() => (t = createTempDb()));
 afterEach(() => t.cleanup());
 
-function handler(onChangedJobs: (ids: number[]) => void = () => {}) {
+function handler(onChangedJobs: (ids: number[]) => void = () => {}, canScan?: () => boolean) {
   const settings = createSettings(t.db);
   const sources = createSourceService({ db: t.db, settings });
   const profiles = createProfileService({ db: t.db, files: createFileStore(t.dir) });
-  const h = createDiscoveryScanHandler({ db: t.db, sources, profiles, ingestor: createIngestor({ db: t.db }), http: createHttpClient({ minGapMs: 0 }), log, env: {}, ai: null, onChangedJobs });
+  const h = createDiscoveryScanHandler({ db: t.db, sources, profiles, ingestor: createIngestor({ db: t.db }), http: createHttpClient({ minGapMs: 0 }), log, env: {}, ai: null, onChangedJobs, canScan });
   return { h, sources, profiles };
 }
 
@@ -53,5 +53,14 @@ describe('discovery.scan handler', () => {
 
   it('rejects malformed payloads permanently', async () => {
     await expect(handler().h({ trigger: 'whenever' }, ctx)).rejects.toBeInstanceOf(PermanentError);
+  });
+
+  it('does not search while onboarding is unfinished (a scan queued earlier is dropped)', async () => {
+    const changed: number[][] = [];
+    const { h, sources } = handler((ids) => changed.push(ids), () => false);
+    sources.create('h-test', 'H', {});
+    await h({ trigger: 'schedule' }, ctx);
+    expect(changed).toEqual([]);
+    expect(listRecentScanRuns(t.db)).toHaveLength(0);
   });
 });

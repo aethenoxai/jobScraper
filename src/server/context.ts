@@ -13,6 +13,7 @@ import { createMatchService, type MatchService } from './matching/service';
 import { createTrackingService, type TrackingService } from './tracking/service';
 import { RESCORE_TASK } from './matching/tasks';
 import { createNotifier, type Notifier } from './notifications/dispatcher';
+import { isOnboarded } from './onboarding';
 import { registerBuiltInAdapters } from './sources/adapters';
 import { createSourceService, type SourceService } from './sources/service';
 import { createFileStore, type FileStore } from './storage';
@@ -57,7 +58,8 @@ export function getAppContext(): AppContext {
       db,
       settings,
       queue,
-      scheduler: createScheduler({ settings, queue }),
+      // Nothing is searched before onboarding is finished.
+      scheduler: createScheduler({ settings, queue, canScan: () => isOnboarded({ settings, profiles }) }),
       files,
       log,
       ai,

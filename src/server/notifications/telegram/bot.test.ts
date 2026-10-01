@@ -23,12 +23,12 @@ afterEach(() => t.cleanup());
 let answerFails = false;
 beforeEach(() => (answerFails = false));
 
-async function setup() {
+async function setup(canScan?: () => boolean) {
   const settings = createSettings(t.db);
   const queue = createQueue(t.db);
   const profiles = createProfileService({ db: t.db, files: createFileStore(path.join(t.dir, 'f')) });
   const matching = createMatchService({ db: t.db, ai: null, queue, profiles, log });
-  const scheduler = createScheduler({ settings, queue });
+  const scheduler = createScheduler({ settings, queue, canScan });
   const p = profiles.create('Engineer');
   const d = emptyProfile();
   d.headline = 'Backend Engineer';
@@ -85,6 +85,13 @@ describe('telegram bot', () => {
     const { bot, calls, matchId } = await setup();
     await bot.handleUpdate(press(`s:${matchId}`));
     expect(String(calls.find((c) => c.method === 'editMessageText')?.args[2])).toMatch(/Skipped/);
+  });
+
+  it('/resume before onboarding is finished explains instead of starting', async () => {
+    const { bot, calls, scheduler } = await setup(() => false);
+    await bot.handleUpdate(say('/resume'));
+    expect(scheduler.getState().enabled).toBe(false);
+    expect(String(calls.at(-1)?.args[1])).toMatch(/finish setting up/i);
   });
 
   it('lists pending jobs with buttons, reports status, and pauses/resumes discovery', async () => {

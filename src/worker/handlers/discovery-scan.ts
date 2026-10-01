@@ -30,12 +30,18 @@ export interface DiscoveryDeps {
   /** Scan-wide problems for the System page. */
   failures?: FailureLog;
   settings?: SettingsStore;
+  /** False until onboarding is finished: a scan queued before (or by an old schedule) is dropped. */
+  canScan?: () => boolean;
 }
 
 export function createDiscoveryScanHandler(deps: DiscoveryDeps): TaskHandler {
   return async (payload, { log, signal }) => {
     const parsed = PayloadSchema.safeParse(payload);
     if (!parsed.success) throw new PermanentError(`Invalid discovery.scan payload: ${parsed.error.message}`);
+    if (deps.canScan && !deps.canScan()) {
+      log.info({ trigger: parsed.data.trigger }, 'discovery scan skipped: setup is not finished');
+      return;
+    }
     const summary = await runScan({
       ...deps,
       log,

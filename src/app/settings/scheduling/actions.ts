@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { isNamedError } from '@/lib/format';
 import { getAppContext } from '@/server/context';
 import { isValidInterval } from '@/server/scheduler';
 
@@ -12,9 +13,19 @@ function refresh() {
   revalidatePath('/');
 }
 
+/** Searching is refused until setup is finished: send the user there instead of showing an error. */
+function orSetup<T>(fn: () => T): T {
+  try {
+    return fn();
+  } catch (err) {
+    if (isNamedError(err, 'OnboardingIncompleteError')) redirect('/welcome');
+    throw err;
+  }
+}
+
 // Start and Stop go back to the plain page, so an earlier message ("Scan queued") doesn't linger.
 export async function startDiscovery() {
-  getAppContext().scheduler.start();
+  orSetup(() => getAppContext().scheduler.start());
   refresh();
   redirect(PAGE);
 }
@@ -26,7 +37,7 @@ export async function stopDiscovery() {
 }
 
 export async function runDiscoveryNow() {
-  const { deduped } = getAppContext().scheduler.runNow();
+  const { deduped } = orSetup(() => getAppContext().scheduler.runNow());
   refresh();
   redirect(`${PAGE}?msg=${deduped ? 'already' : 'queued'}`);
 }

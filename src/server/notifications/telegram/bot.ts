@@ -75,7 +75,13 @@ export function createTelegramBot(deps: {
         await client.sendMessage(chatId, '⏸ Job search paused. Send /resume to start again.');
         return;
       case '/resume':
-        deps.scheduler.start();
+        try {
+          deps.scheduler.start();
+        } catch (err) {
+          if (!isNamedError(err, 'OnboardingIncompleteError')) throw err;
+          await client.sendMessage(chatId, `${err.message} Open ${deps.appUrl} to finish.`);
+          return;
+        }
         await client.sendMessage(chatId, '▶️ Job search resumed.');
         return;
       default:
