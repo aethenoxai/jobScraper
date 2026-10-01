@@ -78,8 +78,17 @@ const STATES: Record<string, [string, string]> = {
 const STATE_NAMES: Record<string, string> = {
   ...Object.fromEntries(Object.values(STATES).filter(([, n]) => !['victoria', 'new york state', 'washington state', 'georgia'].includes(n)).map(([c, n]) => [n, c])),
   karnataka: 'IN', maharashtra: 'IN', 'tamil nadu': 'IN', telangana: 'IN', kerala: 'IN', haryana: 'IN', 'uttar pradesh': 'IN', 'west bengal': 'IN', gujarat: 'IN',
-  rajasthan: 'IN', 'andhra pradesh': 'IN', 'madhya pradesh': 'IN', odisha: 'IN', bavaria: 'DE', bayern: 'DE', 'north holland': 'NL', 'noord-holland': 'NL', catalonia: 'ES', lombardy: 'IT',
+  rajasthan: 'IN', 'andhra pradesh': 'IN', 'madhya pradesh': 'IN', odisha: 'IN', bihar: 'IN', assam: 'IN', jharkhand: 'IN', chhattisgarh: 'IN', uttarakhand: 'IN',
+  'himachal pradesh': 'IN', tripura: 'IN', meghalaya: 'IN', manipur: 'IN', nagaland: 'IN', mizoram: 'IN', 'arunachal pradesh': 'IN', sikkim: 'IN', puducherry: 'IN', bavaria: 'DE', bayern: 'DE', 'north holland': 'NL', 'noord-holland': 'NL', catalonia: 'ES', lombardy: 'IT',
 };
+
+/** The state a city is in, where postings often name only the city ("Bengaluru, India"). */
+const CITY_STATE: Record<string, string> = {
+  bangalore: 'karnataka', mysore: 'karnataka', mumbai: 'maharashtra', pune: 'maharashtra', nagpur: 'maharashtra', hyderabad: 'telangana', chennai: 'tamil nadu',
+  coimbatore: 'tamil nadu', kolkata: 'west bengal', ahmedabad: 'gujarat', kochi: 'kerala', trivandrum: 'kerala', jaipur: 'rajasthan', indore: 'madhya pradesh',
+  lucknow: 'uttar pradesh', bhubaneswar: 'odisha', visakhapatnam: 'andhra pradesh',
+};
+const STATES_WITH_CITIES = new Set(Object.values(CITY_STATE));
 
 /** Country codes written in locations ("Bengaluru, IN"). US/USA/UK/UAE are unambiguous and count anywhere. */
 const COUNTRY_CODES: Record<string, string> = {
@@ -187,6 +196,7 @@ export function resolvePlaces(text: string | null | undefined): Places {
       if (explicit.size && !explicit.has(country)) continue; // same name, different place
       out.cities.add(city);
       out.countries.add(country);
+      if (CITY_STATE[city]) out.states.add(CITY_STATE[city]);
     }
   }
   return out;
@@ -225,7 +235,7 @@ function wantedPlaces(locations: string[]): WantedPlaces {
 export function unrecognisedPlaces(locations: string[]): string[] {
   return locations.filter((l) => {
     const p = resolvePlaces(l);
-    return p.cities.size === 0 && (p.unknown.length > 0 || p.states.size > 0);
+    return p.cities.size === 0 && (p.unknown.length > 0 || [...p.states].some((st) => !STATES_WITH_CITIES.has(st)));
   });
 }
 
@@ -269,4 +279,33 @@ export function locationMatches(jobLocation: string | null | undefined, workMode
   // A job listed for a whole country the user lives in (e.g. "India") may be open to their city.
   if (job.cities.size === 0 && job.states.size === 0) for (const c of job.countries) if (want.countries.has(c)) return { ok: true, fit: 0.8 };
   return { ok: false, fit: 0, reason: `${jobLocation} isn't one of your locations` };
+}
+
+const UPPER = new Set(['ncr', 'dc']);
+const title = (name: string) => name.replace(/[\p{L}.']+/gu, (w) => (UPPER.has(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)));
+
+/** Countries for the setup pickers, by name. */
+export function countryChoices(): Array<{ code: string; name: string }> {
+  return Object.entries(COUNTRIES)
+    .map(([code, names]) => ({ code, name: title(names[0]) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** States and major cities of a country, for the setup pickers (names the matcher recognises). */
+export function placeChoices(code: string): { states: string[]; cities: string[] } {
+  const states = new Set<string>();
+  for (const [country, name] of Object.values(STATES)) if (country === code) states.add(name);
+  for (const [name, country] of Object.entries(STATE_NAMES)) if (country === code) states.add(name);
+  const cities = Object.entries(CITIES).filter(([, [country]]) => country === code).map(([city]) => city);
+  const sorted = (xs: Iterable<string>) => [...xs].map(title).sort((a, b) => a.localeCompare(b));
+  return { states: sorted(states), cities: sorted(cities) };
+}
+
+/**
+ * Preferred locations from the pickers: the cities if any were chosen, else the states, else the whole country.
+ * Each keeps its country ("Karnataka, India"), so remote jobs and same-named places elsewhere are judged right.
+ */
+export function composeLocations(country: string, states: string[], cities: string[]): string[] {
+  const places = cities.length ? cities : states;
+  return places.length ? places.map((p) => `${p}, ${country}`) : [country];
 }

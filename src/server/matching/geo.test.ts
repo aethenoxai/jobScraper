@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { locationMatches, resolvePlaces, unrecognisedPlaces } from './geo';
+import { composeLocations, countryChoices, locationMatches, placeChoices, resolvePlaces, unrecognisedPlaces } from './geo';
 
 describe('resolvePlaces', () => {
   it('knows cities, their aliases and countries', () => {
@@ -98,7 +98,7 @@ describe('ambiguous places', () => {
   });
 
   it('lists preferred places it cannot recognise', () => {
-    expect(unrecognisedPlaces(['Bangalore', 'Mangalore', 'Remote', 'Karnataka'])).toEqual(['Mangalore', 'Karnataka']);
+    expect(unrecognisedPlaces(['Bangalore', 'Mangalore', 'Remote', 'Bavaria'])).toEqual(['Mangalore', 'Bavaria']);
   });
 });
 
@@ -111,5 +111,53 @@ describe('“Remote” as the only location (found with real feeds)', () => {
     expect(locationMatches('Berlin', 'hybrid', remoteOnly).ok).toBe(false);
     // Nothing known about the place: kept, with a lower fit.
     expect(locationMatches(null, null, remoteOnly)).toMatchObject({ ok: true, fit: 0.6 });
+  });
+});
+
+describe('Indian states (setup asks for state and city)', () => {
+  const prefs = (...locations: string[]) => ({ locations, remoteScope: 'country' as const });
+
+  it('a job in a city matches the state it is in, not another state', () => {
+    expect(locationMatches('Bengaluru, India', 'onsite', prefs('Karnataka, India'))).toMatchObject({ ok: true, fit: 1 });
+    expect(locationMatches('Pune', 'hybrid', prefs('Maharashtra, India'))).toMatchObject({ ok: true, fit: 1 });
+    expect(locationMatches('Bengaluru, India', 'onsite', prefs('Maharashtra, India')).ok).toBe(false);
+    expect(locationMatches('Hyderabad, Telangana', 'onsite', prefs('Telangana, India')).ok).toBe(true);
+  });
+
+  it('knows the smaller states too, and keeps the country for remote jobs', () => {
+    expect(resolvePlaces('Uttarakhand, India')).toMatchObject({ states: new Set(['uttarakhand']), countries: new Set(['IN']) });
+    expect(locationMatches('Remote - India', 'remote', prefs('Karnataka, India')).ok).toBe(true);
+    expect(locationMatches('Remote - US', 'remote', prefs('Karnataka, India')).ok).toBe(false);
+  });
+
+  it('a state with known cities is not reported as unrecognised', () => {
+    expect(unrecognisedPlaces(['Karnataka, India', 'Bavaria'])).toEqual(['Bavaria']);
+  });
+});
+
+describe('place choices for the setup pickers', () => {
+  it('lists countries by name', () => {
+    const countries = countryChoices();
+    expect(countries).toContainEqual({ code: 'IN', name: 'India' });
+    expect(countries).toContainEqual({ code: 'GB', name: 'United Kingdom' });
+    expect(countries.map((c) => c.name)).toEqual([...countries.map((c) => c.name)].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it('lists the states and cities of a country', () => {
+    const india = placeChoices('IN');
+    expect(india.states).toContain('Karnataka');
+    expect(india.states).toContain('Tamil Nadu');
+    expect(india.cities).toContain('Bangalore');
+    expect(india.cities).toContain('Delhi NCR');
+    expect(placeChoices('US').states).toContain('California');
+    expect(placeChoices('DE').states).toEqual(expect.arrayContaining(['Bavaria']));
+    expect(placeChoices('ZZ')).toEqual({ states: [], cities: [] });
+  });
+
+  it('turns choices into locations, the most specific first, each with its country', () => {
+    expect(composeLocations('India', [], [])).toEqual(['India']);
+    expect(composeLocations('India', ['Karnataka'], [])).toEqual(['Karnataka, India']);
+    expect(composeLocations('India', ['Karnataka'], ['Bangalore', 'Mysore'])).toEqual(['Bangalore, India', 'Mysore, India']);
+    for (const l of composeLocations('India', ['Karnataka'], ['Bangalore'])) expect(resolvePlaces(l).countries.has('IN')).toBe(true);
   });
 });
