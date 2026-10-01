@@ -10,8 +10,10 @@ test('add a job by link from a page with structured job data', async ({ page }) 
     await expect(page.getByRole('link', { name: 'Staff Nurse (Night Shifts)' })).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 20_000 });
   await page.getByRole('link', { name: 'Staff Nurse (Night Shifts)' }).click();
-  await expect(page.getByText('Care for patients on an acute medical ward')).toBeVisible();
-  await expect(page.getByText('Fixture City Clinic')).toBeVisible();
+  // Within the page: Next's screen-reader announcement of the new page ("… at Fixture City Clinic") also has the name.
+  const main = page.getByRole('main');
+  await expect(main.getByText('Care for patients on an acute medical ward')).toBeVisible();
+  await expect(main.getByText('Fixture City Clinic')).toBeVisible();
 });
 
 test('paste a job that cannot be read automatically', async ({ page }) => {

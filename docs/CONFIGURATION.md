@@ -19,9 +19,9 @@ Wrap a value that contains `#`, `$` or spaces in single quotes, for example `APP
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`. Logs never contain keys or passwords. |
 | `LOG_FORMAT` | `pretty` | `pretty`: readable lines (terminal, `docker compose logs`); `json`: one JSON object per line, for a log collector. |
 
-## AI provider (optional)
+## AI provider
 
-Choose the provider and models in the first setup step, later in **Settings → AI provider**. Only the key goes in `.env`: a key pasted during setup is written there for you (into the env file that already sets it, otherwise `.env`, readable only by you) and used without a restart. In Docker, put it in the `.env` next to `docker-compose.yml` and run `docker compose up -d`.
+Setup asks for an AI model and tests it before you go on: it reads your CV and judges close matches. Later you can change it in **Settings → AI provider**, or choose "None" there to work with offline rules only. Only the key goes in `.env`: a key pasted during setup is written there for you (into the env file that already sets it, otherwise `.env`, readable only by you) and used without a restart. In Docker, put it in the `.env` next to `docker-compose.yml` and run `docker compose up -d`.
 
 | Variable | For |
 | --- | --- |
@@ -33,8 +33,8 @@ Choose the provider and models in the first setup step, later in **Settings → 
 
 Two choices need no key:
 
-- **ChatGPT (sign in with your plan):** *Sign in with ChatGPT* in setup or on the AI page. OpenAI lets open-source apps that run on your own computer use your ChatGPT Plus or Pro plan this way. It works only with Job Scraper opened at `http://127.0.0.1:<PORT>` (OpenAI sends you back to `/callback` there). The sign-in is kept in the database, like the Gmail and Outlook ones.
-- **Claude (through your Claude Code):** Job Scraper runs the [Claude Code](https://claude.com/claude-code) installed on this computer (`claude -p`), signed in with your own account (`claude auth login`). It never sees your Claude password or tokens. Not available in Docker. Anthropic sets the terms for using Claude Code from other tools and may change them.
+- **ChatGPT (sign in with your plan):** *Sign in with ChatGPT* in setup or on the AI page. OpenAI lets open-source apps that run on your own computer use your ChatGPT Plus or Pro plan this way. Open Job Scraper at `http://127.0.0.1:<PORT>` (not `localhost`) before signing in: OpenAI sends you back to `http://127.0.0.1:<PORT>/callback` and accepts no other address. The sign-in is kept in the database, like the Gmail and Outlook ones.
+- **Claude (through your Claude Code):** Job Scraper runs the [Claude Code](https://claude.com/claude-code) installed on this computer (`claude -p`), signed in with your own account (`claude auth login`). It never sees your Claude password or tokens. Not available in Docker. If `ANTHROPIC_API_KEY` is set in the shell that starts Job Scraper, Claude Code bills that key instead of your plan. Anthropic sets the terms for using Claude Code from other tools and may change them.
 
 The AI page also sets a **daily spending limit**; AI work pauses for the day when it is reached. Plans have no per-call price, so for them it sets a **number of AI calls per day** instead (300 by default), so matching can't use up your plan. Without a provider, matching and tailoring use offline rules.
 
