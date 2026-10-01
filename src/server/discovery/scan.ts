@@ -9,13 +9,15 @@ import { plural } from '../../lib/format';
 import { scrubSecrets, type Logger } from '../logging';
 import { getAdapter } from '../sources/registry';
 import type { SourceRecord, SourceService } from '../sources/service';
-import { SourceError, type RawListing, type SourceHints } from '../sources/types';
+import { SourceError, type PageFetcher, type RawListing, type SourceHints } from '../sources/types';
 
 export interface ScanOptions {
   db: Db;
   sources: SourceService;
   ingestor: Ingestor;
   http: HttpClient;
+  /** Reads web pages for page-reading sources (web discovery); missing when Scrapling isn't set up. */
+  pages?: PageFetcher;
   log: Logger;
   env: Record<string, string | undefined>;
   ai: Ai | null;
@@ -107,6 +109,7 @@ export async function runScan(opts: ScanOptions): Promise<ScanSummary> {
         for await (const l of adapter.fetch({
           config: config.data,
           http: opts.http,
+          pages: opts.pages,
           log: opts.log.child({ source: source.name }),
           signal,
           hints: opts.hints,

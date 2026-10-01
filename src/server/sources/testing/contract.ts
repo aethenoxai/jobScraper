@@ -1,6 +1,7 @@
 import { createHttpClient, type HttpClient, type Lookup } from '../../http';
 import { createLogger } from '../../logging';
-import { RawListingSchema, type JobSourceAdapter, type RawListing, type SourceHints } from '../types';
+import { PageFetchError, type PageFetchCode } from '../../scrapling/client';
+import { RawListingSchema, type JobSourceAdapter, type PageFetcher, type RawListing, type SourceHints } from '../types';
 
 /**
  * An HTTP client that answers from fixtures. Keys are substrings of the request URL; the value is the
@@ -21,24 +22,43 @@ export function fixtureHttp(routes: Record<string, unknown>, seen: string[] = []
   return createHttpClient({ fetchImpl, sleep: async () => {}, minGapMs: 0, retries: 0 });
 }
 
+/**
+ * Stands in for Scrapling in tests: pages come from the same fixture routes (through `http`, so `seen` records
+ * them), and `{ __pageError: 'BLOCKED' }` makes a page fail with that code.
+ */
+export function fixturePages(http: HttpClient, routes: Record<string, unknown> = {}): PageFetcher & { calls: string[] } {
+  const calls: string[] = [];
+  return {
+    calls,
+    async fetchPage(url, { signal }) {
+      calls.push(url);
+      const failing = Object.entries(routes).find(([k, v]) => url.includes(k) && typeof v === 'object' && v !== null && '__pageError' in v);
+      if (failing) throw new PageFetchError((failing[1] as { __pageError: PageFetchCode }).__pageError, `fixture ${String((failing[1] as { __pageError: string }).__pageError)}`);
+      const page = await http.getText(url, { signal });
+      return { html: page.text, finalUrl: page.finalUrl || url, status: 200 };
+    },
+  };
+}
+
 export async function collect<C>(
   adapter: JobSourceAdapter<C>,
   config: C,
   http: HttpClient,
-  extra: { knownIds?: Set<string>; hints?: Partial<SourceHints>; env?: Record<string, string>; registerSource?: (adapterId: string, name: string, config: Record<string, unknown>) => void; lookup?: Lookup } = {},
+  extra: { knownIds?: Set<string>; hints?: Partial<SourceHints>; env?: Record<string, string>; registerSource?: (adapterId: string, name: string, config: Record<string, unknown>) => void; lookup?: Lookup; pages?: PageFetcher | null; signal?: AbortSignal } = {},
 ): Promise<RawListing[]> {
   const out: RawListing[] = [];
   for await (const l of adapter.fetch({
     config,
     http,
     log: createLogger({ level: 'silent' }),
-    signal: new AbortController().signal,
+    signal: extra.signal ?? new AbortController().signal,
     hints: { titles: [], locations: [], keywords: [], ...extra.hints },
     knownIds: extra.knownIds ?? new Set(),
     env: extra.env ?? {},
     ai: null,
     registerSource: extra.registerSource,
     lookup: extra.lookup ?? (async () => [{ address: '93.184.216.34', family: 4 }]),
+    pages: extra.pages === null ? undefined : (extra.pages ?? fixturePages(http)),
   })) {
     out.push(l);
   }

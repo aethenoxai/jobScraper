@@ -8,10 +8,11 @@ import type { Ingestor } from '../jobs/ingest';
 import { PASTED_URL } from '../jobs/links';
 import { htmlToText } from '../jobs/normalize';
 import type { Logger } from '../logging';
+import { isPageFetchError, SCRAPLING_MISSING } from '../scrapling/client';
 import { getAdapter } from '../sources/registry';
 import type { SettingsStore } from '../settings';
 import type { SourceService } from '../sources/service';
-import { SourceError, type RawListing } from '../sources/types';
+import { SourceError, type FetchedPage, type PageFetcher, type RawListing } from '../sources/types';
 import { recognizeAtsUrl } from './ats-urls';
 import { extractJobPostings } from './jsonld';
 import { NEVER_FETCH, aiExtractJob, pageGuard } from './web';
@@ -35,6 +36,8 @@ export interface AddJobDeps {
   env: Record<string, string | undefined>;
   signal: AbortSignal;
   lookup?: Lookup;
+  /** Reads the page (Scrapling's stealth browser); missing when Scrapling isn't set up. */
+  pages?: PageFetcher;
 }
 
 export interface AddJobResult {
@@ -56,6 +59,28 @@ export function addUrlNotes(settings: SettingsStore): Map<number, string> {
 }
 
 export const PASTE_HINT = 'This site cannot be read automatically. Open the job, copy its description and use “Paste a job” instead.';
+const BLOCKED_HINT = 'The site blocked automated reading even with the stealth browser. Open the job, copy its description and use “Paste a job” instead.';
+
+/** What to tell the user when the page reader couldn't read the page. */
+function pageProblem(err: unknown): string {
+  if (!isPageFetchError(err)) return `Could not open the page: ${(err as Error).message}`;
+  if (err.code === 'NOT_INSTALLED') return SCRAPLING_MISSING;
+  if (err.code === 'BLOCKED') return BLOCKED_HINT;
+  if (err.code === 'REFUSED') return `Job Scraper doesn't read that page (${err.message.replace(/\.$/, '')}).`;
+  return `Could not open the page: ${err.message}`;
+}
+
+/** Reads the page, trying once more if the helper itself failed (it restarts on the next call). */
+async function readPage(pages: PageFetcher, url: string, signal: AbortSignal): Promise<FetchedPage> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await pages.fetchPage(url, { signal, maxBytes: 3 * 1024 * 1024, timeoutMs: 90_000 });
+    } catch (err) {
+      if (attempt === 0 && !signal.aborted && isPageFetchError(err) && err.code === 'HELPER_FAILED') continue;
+      throw new AddJobError(pageProblem(err));
+    }
+  }
+}
 
 /** Adds the job at a URL: via the company board's API when it is a known ATS, otherwise from the page's structured data. */
 export async function addJobByUrl(rawUrl: string, deps: AddJobDeps): Promise<AddJobResult> {
@@ -120,15 +145,13 @@ export async function addJobByUrl(rawUrl: string, deps: AddJobDeps): Promise<Add
     return { jobIds: [...new Set([...matching, ...result.changedJobIds])], ...(note ? { note } : {}) };
   }
 
-  let page;
-  try {
-    page = await deps.http.getText(url.href, { signal: deps.signal, maxBytes: 3 * 1024 * 1024, timeoutMs: 20_000, guard: pageGuard(deps.http, deps.signal, deps.lookup, { robots: false, allowPrivate }) });
-  } catch (err) {
-    throw new AddJobError(`Could not open the page: ${(err as Error).message}`);
-  }
-  let postings = extractJobPostings(page.text, page.finalUrl || url.href);
+  // The user asked for this page, so robots.txt isn't checked; the address still has to be public.
+  if (!(await pageGuard(deps.http, deps.signal, deps.lookup, { robots: false, allowPrivate })(url))) throw new AddJobError("Job Scraper doesn't read that page (a private network address).");
+  if (!deps.pages) throw new AddJobError(SCRAPLING_MISSING);
+  const page = await readPage(deps.pages, url.href, deps.signal);
+  let postings = extractJobPostings(page.html, page.finalUrl || url.href);
   if (!postings.length && deps.ai?.status().configured) {
-    const listing = await aiExtractJob(deps.ai, htmlToText(page.text), page.finalUrl || url.href).catch(() => null);
+    const listing = await aiExtractJob(deps.ai, htmlToText(page.html), page.finalUrl || url.href).catch(() => null);
     if (listing) postings = [listing];
   }
   if (!postings.length) throw new AddJobError('No job details were found on that page. Use “Paste a job” to add it by hand.');

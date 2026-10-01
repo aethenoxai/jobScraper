@@ -12,6 +12,7 @@ import { PermanentError } from '@/server/queue';
 import type { TaskHandler } from '@/server/queue/runner';
 import type { SettingsStore } from '@/server/settings';
 import type { SourceService } from '@/server/sources/service';
+import type { PageFetcher } from '@/server/sources/types';
 
 const PayloadSchema = z.object({ trigger: z.enum(['schedule', 'manual']) });
 
@@ -21,6 +22,8 @@ export interface DiscoveryDeps {
   profiles: ProfileService;
   ingestor: Ingestor;
   http: HttpClient;
+  /** Reads job pages (Scrapling) for web discovery and Add by link. */
+  pages?: PageFetcher;
   log: Logger;
   env: Record<string, string | undefined>;
   ai: Ai | null;

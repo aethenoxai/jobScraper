@@ -8,7 +8,8 @@ import { createLogger } from '../logging';
 import { createSettings } from '../settings';
 import { registerBuiltInAdapters } from '../sources/adapters';
 import { createSourceService } from '../sources/service';
-import { fixtureHttp } from '../sources/testing/contract';
+import { fixtureHttp, fixturePages } from '../sources/testing/contract';
+import { PageFetchError } from '../scrapling/client';
 import { addJobByUrl, addJobManually, AddJobError, addUrlNotes, rememberAddUrlNote } from './add-url';
 
 registerBuiltInAdapters();
@@ -21,7 +22,8 @@ const page = `<script type="application/ld+json">${JSON.stringify({ '@type': 'Jo
 
 function deps(routes: Record<string, unknown>) {
   const sources = createSourceService({ db: t.db, settings: createSettings(t.db) });
-  return { db: t.db, sources, ingestor: createIngestor({ db: t.db }), http: fixtureHttp(routes), log, ai: null, env: {}, signal: new AbortController().signal, lookup: async () => [{ address: '93.184.216.34', family: 4 }] };
+  const http = fixtureHttp(routes);
+  return { db: t.db, sources, ingestor: createIngestor({ db: t.db }), http, pages: fixturePages(http, routes), log, ai: null, env: {}, signal: new AbortController().signal, lookup: async () => [{ address: '93.184.216.34', family: 4 }] };
 }
 
 describe('addJobByUrl', () => {
@@ -80,6 +82,57 @@ describe('addJobManually', () => {
   it('refuses pages that redirect into the local network', async () => {
     const d = deps({ 'jobs.evil.test/posting': page });
     const evil = { ...d, lookup: async (h: string) => [{ address: h === 'jobs.evil.test' ? '10.0.0.8' : '93.184.216.34', family: 4 }] };
-    await expect(addJobByUrl('https://jobs.evil.test/posting', evil)).rejects.toThrow(/blocked/);
+    await expect(addJobByUrl('https://jobs.evil.test/posting', evil)).rejects.toThrow(/doesn.t read that page/);
+    expect(d.pages.calls).toEqual([]);
+  });
+});
+
+describe('addJobByUrl reads pages with Scrapling', () => {
+  it('reads the page through the page reader', async () => {
+    const d = deps({ 'clinic.test/jobs/nurse': page });
+    await addJobByUrl('https://clinic.test/jobs/nurse', d);
+    expect(d.pages.calls).toEqual(['https://clinic.test/jobs/nurse']);
+  });
+
+  it('never hands LinkedIn and similar sites to the page reader', async () => {
+    const d = deps({});
+    await expect(addJobByUrl('https://www.linkedin.com/jobs/view/42', d)).rejects.toThrow(/paste/i);
+    expect(d.pages.calls).toEqual([]);
+  });
+
+  it('says to run setup when Scrapling is missing', async () => {
+    const d = { ...deps({ 'clinic.test/jobs/nurse': page }), pages: undefined };
+    await expect(addJobByUrl('https://clinic.test/jobs/nurse', d)).rejects.toThrow(/pnpm run setup/);
+    await expect(addJobByUrl('https://clinic.test/jobs/nurse', deps({ 'clinic.test/jobs/nurse': { __pageError: 'NOT_INSTALLED' } }))).rejects.toThrow(/pnpm run setup/);
+  });
+
+  it.each([
+    ['BLOCKED', /blocked automated reading even with the stealth browser.*Paste a job/],
+    ['REFUSED', /doesn.t read that page/],
+    ['TIMEOUT', /Could not open the page/],
+    ['HTTP_ERROR', /Could not open the page/],
+  ])('explains a page the reader reports as %s', async (code, message) => {
+    const err = await addJobByUrl('https://clinic.test/jobs/nurse', deps({ 'clinic.test/jobs/nurse': { __pageError: code } })).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AddJobError);
+    expect((err as Error).message).toMatch(message);
+  });
+
+  it('tries once more when the helper crashed, then explains', async () => {
+    const d = deps({ 'clinic.test/jobs/nurse': page });
+    let failures = 1;
+    const flaky = {
+      calls: [] as string[],
+      fetchPage: async (url: string, opts: { signal: AbortSignal }) => {
+        flaky.calls.push(url);
+        if (failures-- > 0) throw new PageFetchError('HELPER_FAILED', 'helper stopped');
+        return d.pages.fetchPage(url, opts);
+      },
+    };
+    await expect(addJobByUrl('https://clinic.test/jobs/nurse', { ...d, pages: flaky })).resolves.toMatchObject({ jobIds: [expect.any(Number)] });
+    expect(flaky.calls).toHaveLength(2);
+    failures = 2;
+    flaky.calls = [];
+    await expect(addJobByUrl('https://clinic.test/jobs/other', { ...d, pages: flaky })).rejects.toThrow(/Could not open the page/);
+    expect(flaky.calls).toHaveLength(2);
   });
 });

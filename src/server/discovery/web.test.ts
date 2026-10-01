@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { collect, fixtureHttp } from '../sources/testing/contract';
+import { describe, expect, it, vi } from 'vitest';
+import { collect, fixtureHttp, fixturePages } from '../sources/testing/contract';
 import { SourceError } from '../sources/types';
 import { planQueries, web } from './web';
 
@@ -78,5 +78,77 @@ describe('planQueries', () => {
 
   it('returns nothing without target titles', () => {
     expect(planQueries({ titles: [], locations: ['Pune'], keywords: [] }, 5)).toEqual([]);
+  });
+});
+
+describe('web discovery reads pages with Scrapling', () => {
+  const config = { provider: 'brave' as const, searxngUrl: null, maxQueries: 1, maxPages: 5 };
+  const site = (extra: Record<string, unknown> = {}) => ({ 'api.search.brave.com': brave, 'careers.tinystartup.test/robots.txt': 'User-agent: *\nAllow: /', 'careers.tinystartup.test/jobs/backend': jobPage, ...extra });
+
+  it('reads job pages through the page reader, never through plain HTTP', async () => {
+    const seen: string[] = [];
+    const http = fixtureHttp(site(), seen);
+    const pages = fixturePages(http);
+    const out = await collect(web, config, http, { env, hints, pages });
+    expect(pages.calls).toEqual(['https://careers.tinystartup.test/jobs/backend']);
+    expect(out).toHaveLength(1);
+    // LinkedIn is never handed to the page reader either.
+    expect(pages.calls.some((u) => u.includes('linkedin'))).toBe(false);
+  });
+
+  it('still checks robots.txt before reading a page', async () => {
+    const http = fixtureHttp(site({ 'careers.tinystartup.test/robots.txt': 'User-agent: *\nDisallow: /jobs' }));
+    const pages = fixturePages(http);
+    await collect(web, config, http, { env, hints, pages });
+    expect(pages.calls).toEqual([]);
+  });
+
+  it('fails the run with a setup hint when Scrapling is missing, after registering the boards it found', async () => {
+    const registered: string[] = [];
+    const err = await collect(web, config, fixtureHttp(site()), { env, hints, pages: null, registerSource: (a, n) => registered.push(`${a}:${n}`) }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SourceError);
+    expect((err as SourceError).code).toBe('SOURCE_CONFIG');
+    expect((err as SourceError).message).toMatch(/pnpm run setup/);
+    expect(registered).toEqual(['greenhouse:tinystartup']);
+  });
+
+  it('fails the run the same way when the page reader says Scrapling is not installed', async () => {
+    const http = fixtureHttp(site());
+    const err = await collect(web, config, http, { env, hints, pages: fixturePages(http, { '/jobs/backend': { __pageError: 'NOT_INSTALLED' } }) }).catch((e: unknown) => e);
+    expect((err as SourceError).code).toBe('SOURCE_CONFIG');
+  });
+
+  it.each(['BLOCKED', 'REFUSED', 'TIMEOUT', 'HTTP_ERROR'])('skips a page the reader reports as %s and keeps going', async (code) => {
+    const results = { web: { results: [{ url: 'https://a.test/jobs/1', title: 'a' }, { url: 'https://careers.tinystartup.test/jobs/backend', title: 'b' }] } };
+    const http = fixtureHttp(site({ 'api.search.brave.com': results, 'a.test/robots.txt': '' }));
+    const out = await collect(web, config, http, { env, hints, pages: fixturePages(http, { 'a.test/jobs/1': { __pageError: code } }) });
+    expect(out).toEqual([expect.objectContaining({ title: 'Backend Engineer' })]);
+  });
+
+  it('fails the run when the helper keeps crashing (twice in a run)', async () => {
+    const results = { web: { results: [{ url: 'https://a.test/1', title: 'a' }, { url: 'https://b.test/2', title: 'b' }, { url: 'https://careers.tinystartup.test/jobs/backend', title: 'c' }] } };
+    const http = fixtureHttp(site({ 'api.search.brave.com': results, 'robots.txt': '' }));
+    const err = await collect(web, config, http, { env, hints, pages: fixturePages(http, { 'a.test/1': { __pageError: 'HELPER_FAILED' }, 'b.test/2': { __pageError: 'HELPER_FAILED' } }) }).catch((e: unknown) => e);
+    expect((err as SourceError).code).toBe('SOURCE_UNAVAILABLE');
+  });
+
+  it('stops reading new pages when the run’s time budget is used up', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const results = { web: { results: [{ url: 'https://a.test/1', title: 'a' }, { url: 'https://careers.tinystartup.test/jobs/backend', title: 'b' }] } };
+      const http = fixtureHttp(site({ 'api.search.brave.com': results, 'robots.txt': '' }));
+      const inner = fixturePages(http);
+      const pages = {
+        calls: inner.calls,
+        fetchPage: async (url: string, opts: { signal: AbortSignal }) => {
+          vi.setSystemTime(Date.now() + 5 * 60_000); // this page took the whole budget
+          return inner.fetchPage(url, opts);
+        },
+      };
+      await collect(web, config, http, { env, hints, pages });
+      expect(inner.calls).toEqual(['https://a.test/1']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

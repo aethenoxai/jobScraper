@@ -3,6 +3,7 @@ import type { Ai } from '../ai';
 import { isPublicHttpUrl, resolvesToPublicAddress, type HttpClient, type Lookup } from '../http';
 import { NEVER_FETCH } from '../jobs/links';
 import { htmlToText } from '../jobs/normalize';
+import { isPageFetchError, SCRAPLING_MISSING } from '../scrapling/client';
 import { SourceError, type JobSourceAdapter, type RawListing, type SourceHints } from '../sources/types';
 import { recognizeAtsUrl } from './ats-urls';
 import { extractJobPostings } from './jsonld';
@@ -15,6 +16,11 @@ export interface SearchResult {
 
 /** Sites whose terms or anti-bot measures rule out automated fetching; their jobs arrive via "Add job by URL". */
 export { NEVER_FETCH };
+/** Pages are read until this much of the run has passed, so a run stays inside the scan's per-source limit (5 min). */
+const READ_BUDGET_MS = 4 * 60_000;
+const PAGE_TIMEOUT_MS = 90_000;
+const MAX_PAGE_BYTES = 3 * 1024 * 1024;
+
 const ATS_SITES = ['boards.greenhouse.io', 'job-boards.greenhouse.io', 'jobs.lever.co', 'jobs.ashbyhq.com', 'apply.workable.com', 'recruitee.com', 'jobs.smartrecruiters.com'];
 
 /**
@@ -104,7 +110,7 @@ export const web: JobSourceAdapter<WebConfig> = {
   displayName: 'Web discovery',
   description: 'Searches the web for your target roles, adds company job boards it finds as sources, and reads job pages that publish structured job data.',
   homepage: 'https://schema.org/JobPosting',
-  terms: 'Respects robots.txt and never fetches LinkedIn, Indeed, Glassdoor or Naukri pages.',
+  terms: 'Reads job pages with a stealth browser (Scrapling) that gets past bot checks. Respects robots.txt and never fetches LinkedIn, Indeed, Glassdoor or Naukri pages.',
   configFields: [
     { key: 'provider', label: 'Search provider (brave or searxng)', placeholder: 'brave' },
     { key: 'searxngUrl', label: 'SearXNG URL (only for searxng)', placeholder: 'http://127.0.0.1:8888', optional: true },
@@ -116,7 +122,7 @@ export const web: JobSourceAdapter<WebConfig> = {
   // Search APIs have monthly quotas (Brave free: 2,000/month): ~4 runs a day × 6 queries fits.
   minIntervalMinutes: 360,
   defaultInstances: [{ name: 'Web discovery', config: { provider: 'brave', searxngUrl: null, maxQueries: 6, maxPages: 15 }, enabled: false }],
-  async *fetch({ config, http, signal, hints, env, ai, log, registerSource, knownIds, lookup }) {
+  async *fetch({ config, http, signal, hints, env, ai, log, registerSource, knownIds, lookup, pages }) {
     const guard = pageGuard(http, signal, lookup);
     const queries = planQueries(hints, config.maxQueries);
     if (!queries.length) {
@@ -124,7 +130,9 @@ export const web: JobSourceAdapter<WebConfig> = {
       return;
     }
     const seen = new Set<string>();
-    let pages = 0;
+    let read = 0;
+    let helperFailures = 0;
+    const deadline = Date.now() + READ_BUDGET_MS;
     for (const q of queries) {
       let results: SearchResult[];
       try {
@@ -156,21 +164,26 @@ export const web: JobSourceAdapter<WebConfig> = {
           for (const id of known) yield { sourceJobId: id, sourceUrl: r.url, title: r.title || 'Job', company: '-', touchOnly: true };
           continue;
         }
-        if (pages >= config.maxPages) continue;
+        if (read >= config.maxPages) continue;
+        // Pages left unread are found again by the next run.
+        if (Date.now() >= deadline) continue;
         try {
           if (!(await guard(url))) continue;
-          pages++;
-          const page = await http.getText(r.url, { signal, maxBytes: 3 * 1024 * 1024, timeoutMs: 20_000, guard });
-          const postings = extractJobPostings(page.text, page.finalUrl || r.url);
+          read++;
+          if (!pages) throw new SourceError('SOURCE_CONFIG', SCRAPLING_MISSING);
+          const page = await pages.fetchPage(r.url, { signal, maxBytes: MAX_PAGE_BYTES, timeoutMs: Math.min(PAGE_TIMEOUT_MS, Math.max(10_000, deadline - Date.now())) });
+          const postings = extractJobPostings(page.html, page.finalUrl || r.url);
           if (postings.length) {
             yield* postings;
           } else if (ai?.status().configured) {
-            const listing = await aiExtractJob(ai, htmlToText(page.text), page.finalUrl || r.url);
+            const listing = await aiExtractJob(ai, htmlToText(page.html), page.finalUrl || r.url);
             if (listing) yield listing;
           }
         } catch (err) {
-          if (signal.aborted) throw err;
-          log.debug({ url: r.url, error: (err as Error).message }, 'skipped page');
+          if (signal.aborted || err instanceof SourceError) throw err;
+          if (isPageFetchError(err) && err.code === 'NOT_INSTALLED') throw new SourceError('SOURCE_CONFIG', SCRAPLING_MISSING);
+          if (isPageFetchError(err) && err.code === 'HELPER_FAILED' && ++helperFailures >= 2) throw new SourceError('SOURCE_UNAVAILABLE', `Scrapling keeps failing: ${err.message}`);
+          log.debug({ url: r.url, code: isPageFetchError(err) ? err.code : undefined, error: (err as Error).message }, 'skipped page');
         }
       }
     }

@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Scrapling's Python environment (bundled JavaScript inside) and local git worktrees.
+    ".scrapling/**",
+    ".worktrees/**",
+    ".claude/worktrees/**",
   ]),
 ]);
 

@@ -22,6 +22,9 @@ export class PageFetchError extends Error {
   }
 }
 
+/** What the user is told when the page reader can't run (web discovery and Add by link need it). */
+export const SCRAPLING_MISSING = "Scrapling isn't installed: run `pnpm run setup` (it reads job pages for web discovery and Add by link).";
+
 /** By name: Next route bundles get their own copy of this module, so instanceof can fail across them. */
 export function isPageFetchError(err: unknown): err is PageFetchError {
   return isNamedError(err, 'PageFetchError') && CODES.has((err as PageFetchError).code);

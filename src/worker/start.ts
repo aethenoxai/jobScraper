@@ -16,6 +16,8 @@ import { createProfileService } from '@/server/profile/service';
 import { createFileStore } from '@/server/storage';
 import { failInterruptedScans } from '@/server/discovery/scan';
 import { createHttpClient, type HttpClient } from '@/server/http';
+import { createScraplingPages } from '@/server/scrapling/page-fetcher';
+import type { PageFetcher } from '@/server/sources/types';
 import { createIngestor } from '@/server/jobs/ingest';
 import { registerBuiltInAdapters } from '@/server/sources/adapters';
 import { createSourceService } from '@/server/sources/service';
@@ -70,6 +72,8 @@ export interface WorkerOptions {
   /** PDF renderer (tests pass a fake; the default launches headless Chromium on first use). */
   pdf?: PdfRenderer;
   browserEngine?: BrowserEngine;
+  /** Page reader for web discovery and Add by link (tests pass a fake; the default runs Scrapling's helper). */
+  pages?: PageFetcher;
 }
 
 /** Workers running in this process. A heartbeat with our pid but another id is from before a restart (Docker reuses pids). */
@@ -142,6 +146,11 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
   const matching = createMatchService({ db: handle.db, ai, queue, profiles, log });
   const appUrl = `http://${config.host === '0.0.0.0' ? '127.0.0.1' : config.host}:${config.port}`;
   const env = opts.env ?? process.env;
+  // One Scrapling helper reads job pages; it starts now so the System page can say whether pages can be read,
+  // and stops again when idle.
+  const scrapling = opts.pages ? null : createScraplingPages({ env, log, settings });
+  const pages = opts.pages ?? scrapling!.pages;
+  scrapling?.client.start().catch((err: unknown) => log.warn({ err: (err as Error).message }, 'Scrapling is not ready: web discovery and Add by link cannot read job pages'));
   const telegramClient = env.TELEGRAM_BOT_TOKEN ? createTelegramClient({ token: env.TELEGRAM_BOT_TOKEN }) : null;
   const telegramChatId = env.TELEGRAM_ALLOWED_CHAT_ID?.trim() || null;
   const failures = createFailureLog(settings);
@@ -154,6 +163,7 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
     profiles,
     ingestor,
     http,
+    pages,
     log,
     env,
     ai,
@@ -328,6 +338,7 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
       // Let an update being handled finish (it writes the offset) before the database closes.
       if (botRun) await Promise.race([botRun, new Promise((r) => setTimeout(r, 5_000))]);
       await pdf.close();
+      await scrapling?.client.close();
       settings.set(HEARTBEAT_KEY, { workerId, pid: process.pid, at: 0, host: hostname() });
       liveWorkers.delete(workerId);
       handle.close();

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { waitFor } from '../../tests/helpers/wait-for';
 import { loadConfig, type Config } from '@/server/config';
 import { openDb } from '@/server/db';
@@ -16,6 +16,7 @@ import { createCvService } from '@/server/profile/cv-service';
 import { createProfileService } from '@/server/profile/service';
 import { createFileStore } from '@/server/storage';
 import { updateOnboarding } from '@/server/onboarding';
+import { readScraplingStatus } from '@/server/scrapling/status';
 import { startWorker, WorkerAlreadyRunningError } from './start';
 
 const log = createLogger({ level: 'silent' });
@@ -138,4 +139,18 @@ describe('startWorker', () => {
     await worker.stop();
     web.close();
   }, 15_000);
+});
+
+describe('startWorker and Scrapling', () => {
+  it('checks Scrapling at start and records the result for the System page', async () => {
+    const worker = await startWorker({ config, ...fast, env: { SCRAPLING_PYTHON: path.join(dir, 'no-such-python') } });
+    const h = openDb(config.dbPath);
+    try {
+      const settings = createSettings(h.db);
+      await vi.waitFor(() => expect(readScraplingStatus(settings)).toMatchObject({ ready: false, error: expect.stringMatching(/pnpm run setup/) }));
+    } finally {
+      await worker.stop();
+      h.close();
+    }
+  });
 });
