@@ -5,28 +5,53 @@ export const AI_PROVIDERS = ['none', 'openai', 'anthropic', 'google', 'ollama', 
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 export type ModelRole = 'fast' | 'quality';
 
-export const AiSettingsSchema = z.object({
+// Old schema, kept for migrations only
+const OldAiSettingsSchema = z.object({
   provider: z.enum(AI_PROVIDERS),
-  /** Override of the provider's default "fast" model (matching, extraction). */
   fastModel: z.string().trim().min(1).nullable(),
-  /** Override of the provider's default "quality" model (CV tailoring, cover letters). */
   qualityModel: z.string().trim().min(1).nullable(),
-  /** Base URL for Ollama or an OpenAI-compatible server. */
   baseUrl: z.string().trim().url().nullable(),
-  /** Stop AI calls for the rest of the day once this much (USD, estimated) is spent. Null = no limit. */
   dailyBudgetUsd: z.number().min(0).nullable(),
-  /** Subscription providers (no per-call cost): stop after this many calls a day, so matching can't use up the plan. */
   dailyCallLimit: z.number().int().min(1).nullable().default(300),
 });
-export type AiSettings = z.infer<typeof AiSettingsSchema>;
+export type OldAiSettings = z.infer<typeof OldAiSettingsSchema>;
 
+export const AI_TASKS = ['cv-extract', 'jd-analysis', 'match-evaluate', 'web-job-extract', 'cv-tailor', 'cover-letter', 'form-answers', 'inbox-classify'] as const;
+export type AiTask = (typeof AI_TASKS)[number];
+
+/** Which tasks used the "quality" model before per-task routing; the rest used "fast". */
+const QUALITY_TASKS: readonly AiTask[] = ['cv-tailor', 'cover-letter'];
+
+export const TASK_LABELS: Record<AiTask, { title: string; hint: string }> = {
+  'cv-extract': { title: 'Reading your CV', hint: 'Without AI: you fill the profile in yourself.' },
+  'jd-analysis': { title: 'Understanding a job post', hint: 'Without AI: simpler rule-based requirements.' },
+  'match-evaluate': { title: 'Scoring a match', hint: 'Without AI: offline heuristic score.' },
+  'web-job-extract': { title: 'Reading a job page', hint: 'Without AI: pages without structured data are skipped.' },
+  'cv-tailor': { title: 'Tailoring your CV', hint: 'Without AI: a template CV from your profile.' },
+  'cover-letter': { title: 'Writing a cover letter', hint: 'Without AI: a template letter.' },
+  'form-answers': { title: 'Answering application forms', hint: 'Without AI: unmapped fields are left blank.' },
+  'inbox-classify': { title: 'Sorting your inbox', hint: 'Without AI: rule-based classification.' },
+};
+
+const RouteSchema = z.object({ provider: z.enum(AI_PROVIDERS), model: z.string().trim().min(1).nullable() });
+const ProviderConfigSchema = z.object({
+  baseUrl: z.string().trim().url().nullable().default(null),
+  dailyBudgetUsd: z.number().min(0).nullable().default(2),
+  dailyCallLimit: z.number().int().min(1).nullable().default(300),
+});
+
+export const AiSettingsSchema = z.object({
+  providers: z.record(z.string(), ProviderConfigSchema).default({}),
+  tasks: z.record(z.string(), RouteSchema).default({}),
+});
+export type AiSettings = z.infer<typeof AiSettingsSchema>;
+export type AiProviderConfig = z.infer<typeof ProviderConfigSchema>;
+export type AiRoute = z.infer<typeof RouteSchema>;
+
+const OFFLINE: AiRoute = { provider: 'none', model: null };
 export const DEFAULT_AI_SETTINGS: AiSettings = {
-  provider: 'none',
-  fastModel: null,
-  qualityModel: null,
-  baseUrl: null,
-  dailyBudgetUsd: 2,
-  dailyCallLimit: 300,
+  providers: {},
+  tasks: Object.fromEntries(AI_TASKS.map((t) => [t, OFFLINE])) as Record<AiTask, AiRoute>,
 };
 
 /** Providers paid through the user's own plan: no money is counted, calls are (dailyCallLimit). */
@@ -80,6 +105,24 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
   'claude-code': 'Claude (through your Claude Code)',
   chatgpt: 'ChatGPT (sign in with your plan)',
 };
+
+/**
+ * Reads either shape: the new one as-is, the pre-routing one converted. Never writes.
+ */
+export function migrateAiSettings(raw: unknown, env: Record<string, string | undefined>): AiSettings {
+  const asNew = AiSettingsSchema.safeParse(raw);
+  if (asNew.success && Object.keys(asNew.data.tasks).length === AI_TASKS.length) return asNew.data;
+  const old = OldAiSettingsSchema.safeParse(raw);
+  if (!old.success) return DEFAULT_AI_SETTINGS;
+  const { provider, fastModel, qualityModel, baseUrl, dailyBudgetUsd, dailyCallLimit } = old.data;
+  const defaults = provider === 'none' ? { fast: null, quality: null } : DEFAULT_MODELS[provider];
+  const route = (q: boolean): AiRoute => (provider === 'none' ? OFFLINE : { provider, model: (q ? qualityModel ?? defaults.quality : fastModel ?? defaults.fast) ?? null });
+  const tasks = Object.fromEntries(AI_TASKS.map((t) => [t, route(QUALITY_TASKS.includes(t))])) as Record<AiTask, AiRoute>;
+  // D-30: CV reading stays on Gemini 3 Flash where a Gemini key exists.
+  if (env.GEMINI_API_KEY || env.GOOGLE_GENERATIVE_AI_API_KEY) tasks['cv-extract'] = { provider: 'google', model: 'gemini-3-flash-preview' };
+  const providers = provider === 'none' ? {} : { [provider]: { baseUrl, dailyBudgetUsd, dailyCallLimit } };
+  return AiSettingsSchema.parse({ providers, tasks });
+}
 
 /**
  * Applies a submitted settings form on top of the current settings. Fields the form didn't send are kept
