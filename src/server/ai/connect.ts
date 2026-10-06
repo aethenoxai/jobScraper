@@ -16,7 +16,7 @@ export interface ConnectDeps {
   /** Saves a key to the env file (the env returned by `env` then has it). */
   writeKey: (key: string, value: string) => void;
   /** True when the variable was set in the shell that started Job Scraper (that value wins over .env). */
-  shellDefines?: (key: string) => boolean;
+  shellDefines: (key: string) => boolean;
   /** In Docker the container's settings come from the .env file on the computer: keys can't be saved from inside. */
   inDocker: boolean;
   modelFactory?: ModelFactory;
@@ -49,7 +49,7 @@ export async function testProvider(deps: ConnectDeps, req: TestProviderRequest):
   registerSecret(key);
   if (keyVar && key) {
     if (deps.inDocker) return { ok: false, message: `In Docker, add ${keyVar}=<your key> to the .env file next to docker-compose.yml, run "docker compose up -d", then test again with this field left empty.` };
-    if (deps.shellDefines?.(keyVar)) return { ok: false, message: `${keyVar} is set in the shell that started Job Scraper, and that value wins over .env. Leave this field empty to test with it, or remove it from the shell and restart.` };
+    if (deps.shellDefines(keyVar)) return { ok: false, message: `${keyVar} is set in the shell that started Job Scraper, and that value wins over .env. Leave this field empty to test with it, or remove it from the shell and restart.` };
     try {
       deps.writeKey(keyVar, key);
     } catch (err) {
@@ -62,6 +62,7 @@ export async function testProvider(deps: ConnectDeps, req: TestProviderRequest):
   // A throwaway Ai over a private copy of the settings, routed at the provider under test. The stored row is never written.
   const stored = migrateAiSettings(deps.settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), deps.env());
   const baseUrl = req.baseUrl?.trim() || stored.providers[provider]?.baseUrl || null;
+  if (baseUrl && !URL.canParse(baseUrl)) return { ok: false, message: 'The server address must be a full URL such as http://127.0.0.1:11434/api.' };
   const candidate = {
     providers: { [provider]: { dailyBudgetUsd: null, dailyCallLimit: null, ...stored.providers[provider], baseUrl } },
     tasks: { 'cv-extract': { provider, model: req.model.trim() || null } },
@@ -73,6 +74,7 @@ export async function testProvider(deps: ConnectDeps, req: TestProviderRequest):
   try {
     const out = await ai.generateObject({
       task: 'cv-extract',
+      label: 'connection-test',
       schema: z.object({ ok: z.boolean() }),
       system: 'You are a health check. Reply exactly as instructed.',
       prompt: 'Return {"ok": true}.',

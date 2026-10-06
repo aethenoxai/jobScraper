@@ -57,6 +57,8 @@ export interface TaskStatus {
 export interface GenerateObjectRequest<T> {
   /** Which task this is: its provider and model come from the settings, and it labels the usage ledger. */
   task: AiTask;
+  /** Names the call in the usage ledger and error messages instead of the task (e.g. a connection test). */
+  label?: string;
   schema: z.ZodType<T>;
   system: string;
   prompt: string;
@@ -226,7 +228,7 @@ export function createAi(deps: {
             return null;
           }
           if (config.dailyBudgetUsd !== null && spentToday(provider, tx) >= config.dailyBudgetUsd) return null;
-          return tx.insert(aiUsage).values({ task: req.task, role: '', provider, model: modelId, inputTokens: 0, outputTokens: 0, costUsd: reserved, ok: false, createdAt: now() }).returning({ id: aiUsage.id }).get().id;
+          return tx.insert(aiUsage).values({ task: req.label ?? req.task, role: '', provider, model: modelId, inputTokens: 0, outputTokens: 0, costUsd: reserved, ok: false, createdAt: now() }).returning({ id: aiUsage.id }).get().id;
         },
         { behavior: 'immediate' },
       );
@@ -299,10 +301,10 @@ export function createAi(deps: {
       } catch (err) {
         record(false);
         // Log only the message: provider errors carry the request body (CV text) and headers.
-        deps.log.warn({ error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), task: req.task, provider, model: modelId }, 'AI call failed');
+        deps.log.warn({ error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), task: req.label ?? req.task, provider, model: modelId }, 'AI call failed');
         if (err instanceof AiBudgetExceededError || err instanceof AiNotConfiguredError) throw err;
         // Name the route (not the prompt or key) so a retired or misspelt model is easy to spot.
-        throw new Error(`${req.task} · ${provider} · ${modelId}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+        throw new Error(`${req.label ?? req.task} · ${provider} · ${modelId}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
       }
     },
   };

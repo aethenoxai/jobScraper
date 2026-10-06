@@ -1,6 +1,7 @@
 import { MockLanguageModelV4 } from 'ai/test';
 import { z } from 'zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { aiUsage } from '../db/schema';
 import { createTempDb } from '../../../tests/helpers/temp-db';
 import { createLogger } from '../logging';
 import { createSettings } from '../settings';
@@ -42,6 +43,7 @@ function setup(opts: { env?: Record<string, string | undefined>; model?: () => M
     log,
     env: () => env,
     inDocker: opts.inDocker ?? false,
+    shellDefines: () => false,
     writeKey: (key: string, value: string) => {
       written.push([key, value]);
       env[key] = value;
@@ -61,6 +63,22 @@ describe('testProvider: tries one provider and model', () => {
     expect(await testProvider(s.deps, GEMINI)).toMatchObject({ ok: true, message: expect.stringMatching(/connected.*gemini-3-flash-preview/i) });
     expect(s.used).toEqual([{ provider: 'google', model: 'gemini-3-flash-preview', key: 'g-key-123456' }]);
     expect(JSON.stringify(s.stored())).toBe(before);
+  });
+
+  it('records the call as a connection test, never as reading a CV, and names it in errors', async () => {
+    const ok = setup({ env: { GOOGLE_GENERATIVE_AI_API_KEY: 'g-key-123456' } });
+    await testProvider(ok.deps, GEMINI);
+    const bad = setup({ env: { GOOGLE_GENERATIVE_AI_API_KEY: 'g-key-123456' }, model: () => failing('boom') });
+    const r = await testProvider(bad.deps, GEMINI);
+    expect(r.message).toMatch(/connection-test · google · gemini-3-flash-preview/);
+    expect(r.message).not.toMatch(/cv-extract/);
+    const tasks = t.db.select({ task: aiUsage.task }).from(aiUsage).all().map((x) => x.task);
+    expect(tasks).toEqual(['connection-test', 'connection-test']);
+  });
+
+  it('says so when the server address is not a URL', async () => {
+    const s = setup();
+    expect(await testProvider(s.deps, { provider: 'ollama', model: 'llama3.1', baseUrl: 'myserver.local/v1' })).toEqual({ ok: false, message: expect.stringMatching(/full URL/) });
   });
 
   it('saves a pasted key to .env, never to the settings', async () => {
