@@ -57,18 +57,58 @@ describe('listModels', () => {
     expect(r.source).toBe('fallback');
     expect(r.models).toEqual(MODEL_CHOICES.anthropic);
     expect(r.error).toBeTruthy();
-    expect(r.error).not.toContain('k"');
+    expect(r.error).not.toMatch(/key=|googleapis|anthropic\.com/);
   });
 
-  it('falls back on non-200, malformed bodies and empty lists, without caching them', async () => {
+  it('falls back on non-200, malformed bodies and empty lists', async () => {
     for (const res of [() => json({}, 401), () => new Response('nope'), () => json({ data: [] }), () => json({ data: 5 })]) {
       delete (globalThis as Record<string, unknown>).__jobScraperModelCache;
       const r = await listModels('openai', { env: { OPENAI_API_KEY: 'k' }, fetch: fake(res).impl });
       expect(r).toMatchObject({ source: 'fallback', models: MODEL_CHOICES.openai });
       expect(r.error).toBeTruthy();
     }
+  });
+
+  it('caches failures briefly, then retries', async () => {
+    let t = 0;
+    const f = fake(() => json({}, 500));
+    const opts = { env: { OPENAI_API_KEY: 'k' }, fetch: f.impl, now: () => t };
+    await listModels('openai', opts);
+    t = 30_000;
+    await listModels('openai', opts);
+    expect(f.calls).toHaveLength(1);
+    t = 60_000;
+    await listModels('openai', opts);
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it('does not reuse a list after the key changes', async () => {
     const f = fake(() => json({ data: [{ id: 'x' }] }));
-    expect((await listModels('openai', { env: { OPENAI_API_KEY: 'k' }, fetch: f.impl })).source).toBe('live');
+    await listModels('openai', { env: { OPENAI_API_KEY: 'a' }, fetch: f.impl });
+    await listModels('openai', { env: { OPENAI_API_KEY: 'b' }, fetch: f.impl });
+    expect(f.calls).toHaveLength(2);
+    const keys = [...((globalThis as Record<string, unknown>).__jobScraperModelCache as Map<string, unknown>).keys()];
+    expect(keys.join()).not.toMatch(/Bearer|sk-|\|a$|\|b$/);
+  });
+
+  it('never sends the OpenAI key to a stored base URL', async () => {
+    const f = fake(() => json({ data: [{ id: 'x' }] }));
+    await listModels('openai', { env: { OPENAI_API_KEY: 'k' }, baseUrl: 'https://evil.example/v1', fetch: f.impl });
+    expect(f.calls[0].url).toBe('https://api.openai.com/v1/models');
+  });
+
+  it('accepts an Ollama base that already ends in /api', async () => {
+    const f = fake(() => json({ models: [{ name: 'm' }] }));
+    await listModels('ollama', { env: {}, baseUrl: 'http://127.0.0.1:11434/api', fetch: f.impl });
+    expect(f.calls[0].url).toBe('http://127.0.0.1:11434/api/tags');
+  });
+
+  it('falls back on a timeout, with a signal attached', async () => {
+    const f = fake(() => { throw new DOMException('timed out', 'TimeoutError'); });
+    const r = await listModels('openai', { env: { OPENAI_API_KEY: 'k' }, fetch: f.impl });
+    expect(r).toMatchObject({ source: 'fallback', models: MODEL_CHOICES.openai });
+    expect(r.error).toMatch(/TimeoutError/);
+    expect(f.calls[0].init.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('does not call the network without a key, and never throws', async () => {
