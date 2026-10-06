@@ -19,7 +19,7 @@ export const AI_TASKS = ['cv-extract', 'jd-analysis', 'match-evaluate', 'web-job
 export type AiTask = (typeof AI_TASKS)[number];
 
 /** Which tasks used the "quality" model before per-task routing; the rest used "fast". */
-const QUALITY_TASKS: readonly AiTask[] = ['cv-tailor', 'cover-letter'];
+export const QUALITY_TASKS: readonly AiTask[] = ['cv-tailor', 'cover-letter'];
 
 export const TASK_LABELS: Record<AiTask, { title: string; hint: string }> = {
   'cv-extract': { title: 'Reading your CV', hint: 'Without AI: you fill the profile in yourself.' },

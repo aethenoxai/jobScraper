@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { disconnectChatGpt } from '@/server/ai/chatgpt-auth';
 import { claudeCodeSignOut } from '@/server/ai/claude-code';
-import { connectAi } from '@/server/ai/connect';
+import { AI_TASKS, TASK_LABELS } from '@/server/ai/settings';
+import { testProvider } from '@/server/ai/connect';
+import { applyProviderForm, applyTaskForm, updateAiSettings } from '@/server/ai/provider-view';
+import { updateOnboarding } from '@/server/onboarding';
 import { liveEnv, shellDefines, writeEnvValue } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 import { isNamedError } from '@/lib/format';
@@ -15,30 +18,32 @@ export interface StepResult {
   message: string;
 }
 
-const text = (form: FormData, key: string) => {
-  const v = form.get(key);
-  return typeof v === 'string' ? v : undefined;
-};
-
-/** Step 1: save the key (to .env), test the chosen models, and move on when they answer. */
-export async function connectAiStep(form: FormData): Promise<StepResult> {
-  const { db, settings, log } = getAppContext();
-  const result = await connectAi(
-    {
-      db,
-      settings,
-      log,
-      env: () => liveEnv(),
-      writeKey: (key, value) => {
-        writeEnvValue(key, value);
-      },
-      shellDefines: (key) => shellDefines(key),
-      inDocker: process.env.JOB_SCRAPER_IN_DOCKER === 'true',
-    },
-    { provider: text(form, 'provider') ?? '', apiKey: text(form, 'apiKey'), baseUrl: text(form, 'baseUrl'), fastModel: text(form, 'fastModel'), qualityModel: text(form, 'qualityModel') },
-  );
-  if (result.ok) revalidatePath('/welcome');
-  return result;
+/**
+ * Step 1: save what each task uses, then test the provider that reads the CV (one tiny call, at most 20 s: the user
+ * waits). Every task naming a provider must be ready; a task set to "None" runs offline on purpose. Keys are never
+ * typed here: they live in .env.
+ */
+export async function saveAiStep(_prev: StepResult | null, form: FormData): Promise<StepResult> {
+  const { db, settings, log, ai } = getAppContext();
+  const fields = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, String(v)]));
+  try {
+    updateAiSettings(settings, liveEnv(), (c) => applyProviderForm(applyTaskForm(c, fields), fields));
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : 'Please check the form.' };
+  }
+  const stuck = AI_TASKS.map((t) => ai.taskStatus(t)).filter((s) => s.provider !== 'none' && !s.configured);
+  if (stuck.length) return { ok: false, message: stuck.map((s) => `${TASK_LABELS[s.task].title}: ${s.reason}`).join(' ') };
+  const reading = ai.taskStatus('cv-extract');
+  if (reading.provider !== 'none') {
+    const tested = await testProvider(
+      { db, settings, log, env: () => liveEnv(), writeKey: (k, v) => void writeEnvValue(k, v), shellDefines: (k) => shellDefines(k), inDocker: process.env.JOB_SCRAPER_IN_DOCKER === 'true' },
+      { provider: reading.provider, model: reading.model ?? '' },
+    );
+    if (!tested.ok) return tested;
+  }
+  updateOnboarding(settings, (s) => ({ ...s, aiVerifiedAt: Date.now() }));
+  revalidatePath('/welcome');
+  redirect('/welcome');
 }
 
 /** Step 1: forget the ChatGPT sign-in. */

@@ -33,7 +33,7 @@ export default async function ProfilePage({ params }: PageProps<'/profiles/[id]'
   const pending = cvs.pendingReview(id);
   const busy = cvList.some((c) => c.status === 'uploaded' || c.status === 'extracting');
   const missing = missingFields(profile.data);
-  const aiStatus = ai.status();
+  const aiStatus = ai.taskStatus('cv-extract');
   const now = requestTime();
   // Remount the editor only when a CV's data lands in the profile, not after every save.
   const dataVersion = cvList.filter((c) => c.status === 'applied').map((c) => c.id).join('-') || 'none';

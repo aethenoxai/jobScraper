@@ -85,9 +85,11 @@ export function onboardingStatus(deps: { settings: SettingsStore; profiles: Prof
   const status = (step: OnboardingStep): OnboardingStatus => ({ step, state, profile, cv });
 
   if (isOnboarded(deps)) return status('done');
-  if (state.aiVerifiedAt === null || !deps.ai.taskStatus('cv-extract').configured) return status('ai');
-  const reading = cv?.status === 'uploaded' || cv?.status === 'extracting';
-  if (!profile || reading || !(cv?.status === 'applied' || filled(profile)) || state.cvAcceptedAt === null) return status('cv');
+  // Routing CV reading to "None" on purpose is a valid choice (it reads offline); a provider that isn't ready is not.
+  const reading = deps.ai.taskStatus('cv-extract');
+  if (state.aiVerifiedAt === null || (reading.provider !== 'none' && !reading.configured)) return status('ai');
+  const extracting = cv?.status === 'uploaded' || cv?.status === 'extracting';
+  if (!profile || extracting || !(cv?.status === 'applied' || filled(profile)) || state.cvAcceptedAt === null) return status('cv');
   if (state.profileConfirmedAt === null) return status('review');
   if (state.preferencesConfirmedAt === null) return status('preferences');
   return status('start');

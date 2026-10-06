@@ -7,9 +7,13 @@ import { PreferencesStep } from '@/components/welcome/preferences-step';
 import { Progress, STEP_ORDER, type WizardStep } from '@/components/welcome/progress';
 import { ReviewStep } from '@/components/welcome/review-step';
 import { StartStep } from '@/components/welcome/start-step';
-import { AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS, KEY_ENV_VAR } from '@/server/ai/settings';
-import { chatGptAccount, chatGptModelIds } from '@/server/ai/chatgpt-auth';
+import { z } from 'zod';
+import { AI_PROVIDERS, AI_SETTINGS_KEY, AI_TASKS, KEY_ENV_VAR, migrateAiSettings, PROVIDER_LABELS, type AiProvider, type AiTask } from '@/server/ai/settings';
+import { chatGptAccount } from '@/server/ai/chatgpt-auth';
 import { claudeCodeStatus } from '@/server/ai/claude-code';
+import { listModels, type ModelList } from '@/server/ai/models';
+import { aiStateLine } from '@/server/ai/provider-view';
+import { seedTasks } from '@/server/ai/seed';
 import { liveEnv } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 import { onboardingStatus } from '@/server/onboarding';
@@ -36,7 +40,7 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
   const asked = params.step;
   const inDocker = process.env.JOB_SCRAPER_IN_DOCKER === 'true';
   const step = typeof asked === 'string' && (STEP_ORDER as readonly string[]).includes(asked) && STEP_ORDER.indexOf(asked as WizardStep) < STEP_ORDER.indexOf(current) ? (asked as WizardStep) : current;
-  const ai = ctx.ai.status();
+  const reading = ctx.ai.taskStatus('cv-extract');
   const system = getSystemStatus(ctx);
   const waitNotice = cvWaitNotice({ workerOnline: system.worker.online, cv: step === 'cv' ? status.cv : null, now: new Date(system.generatedAt) });
 
@@ -55,21 +59,14 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
       )}
       {step === 'ai' && (
         <AiStep
-          initial={ctx.settings.get(AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS)}
-          savedKeys={Object.fromEntries(Object.entries(KEY_ENV_VAR).map(([p, v]) => [p, !!liveEnv()[v]]))}
-          inDocker={inDocker}
-          connected={status.state.aiVerifiedAt !== null && ai.configured ? `${ai.provider} · ${ai.models.fast} / ${ai.models.quality}` : null}
-          chatgpt={chatGptAccount(ctx.settings)}
-          claudeCode={inDocker ? null : await claudeCodeStatus()}
+          {...(await aiStepProps(ctx, status.state.aiVerifiedAt !== null, inDocker))}
           error={typeof params.error === 'string' ? params.error.slice(0, 300) : null}
-          justSignedIn={params.chatgpt === 'connected'}
-          chatgptModels={chatGptAccount(ctx.settings) ? await chatGptModelIds(ctx.settings) : []}
         />
       )}
       {step === 'cv' && (
         <CvStep
           cv={status.cv && { name: status.cv.originalName, sizeBytes: status.cv.sizeBytes, status: status.cv.status, error: status.cv.error, uploadedAt: status.cv.uploadedAt.getTime() }}
-          model={ai.models.fast}
+          model={reading.model}
           found={status.cv?.status === 'applied' && status.profile ? foundIn(status.profile.data) : null}
         />
       )}
@@ -96,4 +93,29 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
       {(step === 'review' || step === 'preferences' || step === 'start') && !status.profile && <Notice tone="amber">Your profile is missing. Upload your CV again.</Notice>}
     </div>
   );
+}
+
+/** Everything the AI step shows, worked out from what is saved and what is ready on this computer. */
+async function aiStepProps(ctx: ReturnType<typeof getAppContext>, verified: boolean, inDocker: boolean) {
+  const { ai, settings } = ctx;
+  const env = liveEnv();
+  const current = migrateAiSettings(settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), env);
+  const claudeCode = inDocker ? null : await claudeCodeStatus();
+  const chatgpt = chatGptAccount(settings);
+  const ready = (['google', 'openai', 'anthropic', 'chatgpt', 'claude-code'] as const).filter((p) => (p === 'claude-code' ? !!claudeCode?.loggedIn : ai.providerStatus(p).configured));
+  const statuses = AI_PROVIDERS.map((p) => ai.providerStatus(p));
+  // listModels never throws and falls back to the built-in list (and doesn't call out without a key or address).
+  const lists = Object.fromEntries(await Promise.all(statuses.map(async (s) => [s.provider, await listModels(s.provider, { env, baseUrl: s.baseUrl })] as const))) as Record<AiProvider, ModelList>;
+  const taskStatuses = AI_TASKS.map((t) => ai.taskStatus(t));
+  return {
+    tasks: seedTasks(current.tasks, ready),
+    models: Object.fromEntries(AI_PROVIDERS.map((p) => [p, lists[p].models])) as Record<AiProvider, string[]>,
+    notes: Object.fromEntries(taskStatuses.filter((t) => t.provider !== 'none' && !t.configured && t.reason).map((t) => [t.task, t.reason])) as Partial<Record<AiTask, string>>,
+    keys: (['google', 'openai', 'anthropic'] as const).map((p) => ({ label: PROVIDER_LABELS[p], envVar: KEY_ENV_VAR[p]!, present: statuses.find((s) => s.provider === p)!.keyPresent })),
+    addresses: { ollama: current.providers.ollama?.baseUrl ?? '', 'openai-compatible': current.providers['openai-compatible']?.baseUrl ?? '' },
+    inDocker,
+    stateLine: verified ? aiStateLine(taskStatuses, new Set()) : null,
+    chatgpt,
+    claudeCode,
+  };
 }

@@ -80,8 +80,18 @@ describe('onboarding: one step at a time, worked out from what is saved', () => 
     const d = deps();
     updateOnboarding(d.settings, (s) => ({ ...s, aiVerifiedAt: 1 }));
     const only = (tasks: Parameters<typeof fakeRoutes>[0]) => ({ ...d, ai: fakeRoutes(tasks) as never });
-    expect(onboardingStatus(only(['jd-analysis', 'match-evaluate'])).step).toBe('ai');
     expect(onboardingStatus(only(['cv-extract'])).step).not.toBe('ai');
+    // Another task routed to a provider that isn't ready doesn't hold the step either.
+    const stuckElsewhere = { ...d, ai: { ...fakeRoutes(['cv-extract']), taskStatus: (task: string) => ({ ...fakeRoutes(['cv-extract']).taskStatus(task as never), ...(task === 'cv-tailor' ? { provider: 'openai', configured: false } : {}) }) } as never };
+    expect(onboardingStatus(stuckElsewhere).step).not.toBe('ai');
+  });
+
+  it('CV reading routed to None on purpose is a valid choice; a provider that is not ready is not', () => {
+    const d = deps();
+    updateOnboarding(d.settings, (s) => ({ ...s, aiVerifiedAt: 1 }));
+    const route = (provider: string, configured: boolean) => ({ ...d, ai: { taskStatus: (task: string) => ({ task, provider, model: null, configured, reason: null }) } as never });
+    expect(onboardingStatus(route('none', false)).step).not.toBe('ai');
+    expect(onboardingStatus(route('openai', false)).step).toBe('ai');
   });
 
   it('waits on the CV step while the CV is being read, and shows a failed one', async () => {
