@@ -27,7 +27,7 @@ Open **http://127.0.0.1:3000**. A short setup opens first, one step at a time. N
 4. Say which jobs you want: titles, country, state and city, remote or not, job type, expected salary (negotiable or not) and notice period.
 5. Start the job search. The dashboard opens.
 
-Job sources and notifications start with sensible defaults; change them any time in Settings.
+Job sources and notifications start with sensible defaults; change them any time in Settings. *Job sources* is a searchable catalog: connect a platform, see what its connector can actually do, or add single jobs from anywhere by link or by pasting them.
 
 ### With Docker
 

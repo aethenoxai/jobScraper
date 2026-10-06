@@ -85,6 +85,12 @@ export interface SourceContext<C> {
   registerSource?: (adapterId: string, name: string, config: Record<string, unknown>) => void;
 }
 
+/**
+ * What a platform can actually do. `automaticScan` and `detectsClosedJobs` are derived from the adapter
+ * (see `capabilitiesOf`); an adapter declares only the rest. Never claim one the code doesn't do.
+ */
+export type Capability = 'automaticScan' | 'detectsClosedJobs' | 'search' | 'findsBoards' | 'readsWebPages' | 'addByUrl' | 'pasteJob';
+
 export interface ConfigField {
   key: string;
   label: string;
@@ -104,6 +110,8 @@ export interface JobSourceAdapter<C = Record<string, unknown>> {
   identityKey?: string;
   /** Internal adapters (e.g. "manual") are not offered in the "add source" list. */
   hidden?: boolean;
+  /** Capabilities that can't be derived from the fields below (search, findsBoards, readsWebPages). */
+  capabilities?: Capability[];
   configFields: ConfigField[];
   configSchema: z.ZodType<C>;
   /** True when every fetch returns the source's complete current listing (absence ⇒ removed). */

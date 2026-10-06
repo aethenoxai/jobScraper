@@ -1,7 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { liveEnv } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
+import { collectHints } from '@/server/discovery/hints';
+import { createHttpClient } from '@/server/http';
+import { probeSource } from '@/server/sources/probe';
 import { getAdapter } from '@/server/sources/registry';
 import { isNamedError } from '@/lib/format';
 
@@ -27,10 +31,24 @@ const fail = (err: unknown): SourceActionResult => {
   return { ok: false, message: 'Something went wrong. Check the logs.' };
 };
 
+/** "Test" tries the source once from here (bounded, ≤15 s) so the user finds out before saving. */
+async function testConnection(adapterId: string, config: Record<string, unknown>): Promise<SourceActionResult> {
+  const { profiles, log } = getAppContext();
+  return probeSource(adapterId, config, { http: createHttpClient(), env: liveEnv(), log, hints: collectHints(profiles.list()) });
+}
+
 export async function createSource(_prev: SourceActionResult | null, formData: FormData): Promise<SourceActionResult> {
   const adapterId = String(formData.get('adapterId') ?? '');
+  const config = configFrom(adapterId, formData);
+  if (formData.get('intent') === 'test') {
+    try {
+      return await testConnection(adapterId, config);
+    } catch (err) {
+      return fail(err);
+    }
+  }
   try {
-    getAppContext().sources.create(adapterId, String(formData.get('name') ?? ''), configFrom(adapterId, formData));
+    getAppContext().sources.create(adapterId, String(formData.get('name') ?? ''), config);
   } catch (err) {
     return fail(err);
   }
@@ -39,6 +57,13 @@ export async function createSource(_prev: SourceActionResult | null, formData: F
 }
 
 export async function updateSourceConfig(sourceId: number, adapterId: string, _prev: SourceActionResult | null, formData: FormData): Promise<SourceActionResult> {
+  if (formData.get('intent') === 'test') {
+    try {
+      return await testConnection(adapterId, configFrom(adapterId, formData));
+    } catch (err) {
+      return fail(err);
+    }
+  }
   try {
     getAppContext().sources.update(sourceId, { name: String(formData.get('name') ?? ''), config: configFrom(adapterId, formData) });
   } catch (err) {

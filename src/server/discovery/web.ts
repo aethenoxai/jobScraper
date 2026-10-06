@@ -120,6 +120,7 @@ export const web: JobSourceAdapter<WebConfig> = {
     { key: 'maxPages', label: 'Pages to read per run', placeholder: '15', optional: true },
   ],
   configSchema: WebConfigSchema,
+  capabilities: ['search', 'findsBoards', 'readsWebPages'],
   completeSnapshot: false,
   // Search APIs have monthly quotas (Brave free: 2,000/month): ~4 runs a day × 6 queries fits.
   minIntervalMinutes: 360,

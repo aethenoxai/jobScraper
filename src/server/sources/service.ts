@@ -26,23 +26,25 @@ export class SourceConfigError extends Error {
   override name = 'SourceConfigError';
 }
 
+/** Validates a config against its adapter's schema, naming problems by the label the form shows. */
+export function validateConfig(adapterId: string, config: unknown): Record<string, unknown> {
+  const adapter = getAdapter(adapterId);
+  if (!adapter) throw new SourceConfigError(`Unknown source type "${adapterId}"`);
+  const r = adapter.configSchema.safeParse(config);
+  if (!r.success) {
+    const label = (key: PropertyKey | undefined) => adapter.configFields.find((f) => f.key === key)?.label ?? (key === undefined ? 'Settings' : String(key));
+    throw new SourceConfigError(r.error.issues.map((i) => `${label(i.path[0])}: ${i.message}`).join('; '));
+  }
+  return r.data as Record<string, unknown>;
+}
+
 export type SourceService = ReturnType<typeof createSourceService>;
 
 export function createSourceService(deps: { db: Db; settings: SettingsStore; now?: () => Date }) {
   const { db } = deps;
   const now = deps.now ?? (() => new Date());
 
-  function validate(adapterId: string, config: unknown): Record<string, unknown> {
-    const adapter = getAdapter(adapterId);
-    if (!adapter) throw new SourceConfigError(`Unknown source type "${adapterId}"`);
-    const r = adapter.configSchema.safeParse(config);
-    if (!r.success) {
-      // Named by the label the form shows ("Board name"), not the internal key ("board").
-      const label = (key: PropertyKey | undefined) => adapter.configFields.find((f) => f.key === key)?.label ?? (key === undefined ? 'Settings' : String(key));
-      throw new SourceConfigError(r.error.issues.map((i) => `${label(i.path[0])}: ${i.message}`).join('; '));
-    }
-    return r.data as Record<string, unknown>;
-  }
+  const validate = validateConfig;
 
   const service = {
     list(): SourceRecord[] {

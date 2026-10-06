@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import { createSource, updateSourceConfig, type SourceActionResult } from '@/app/(app)/sources/actions';
-import { btnPrimary, input } from '@/components/ui';
+import { btn, btnPrimary, input } from '@/components/ui';
 
 export interface AdapterInfo {
   id: string;
@@ -33,20 +33,26 @@ function Result({ state }: { state: SourceActionResult | null }) {
   return <span role="status" className={`text-sm ${state.ok ? 'text-green-700 dark:text-green-400' : 'text-red-600'}`}>{state.message}</span>;
 }
 
+/** The source list offers every adapter; the platform catalog pins the form to one (then the select is pointless). */
 export function AddSourceForm({ adapters }: { adapters: AdapterInfo[] }) {
   const [adapterId, setAdapterId] = useState(adapters[0]?.id ?? '');
   const [state, action, pending] = useActionState(createSource, null);
   const adapter = adapters.find((a) => a.id === adapterId);
+  const only = adapters.length === 1;
   return (
     <form action={action} className="grid gap-3 sm:grid-cols-2">
-      <label className="flex flex-col gap-1 text-sm">
-        Source type
-        <select name="adapterId" className={input} value={adapterId} onChange={(e) => setAdapterId(e.target.value)}>
-          {adapters.map((a) => (
-            <option key={a.id} value={a.id}>{a.displayName}</option>
-          ))}
-        </select>
-      </label>
+      {only ? (
+        <input type="hidden" name="adapterId" value={adapterId} />
+      ) : (
+        <label className="flex flex-col gap-1 text-sm">
+          Source type
+          <select name="adapterId" className={input} value={adapterId} onChange={(e) => setAdapterId(e.target.value)}>
+            {adapters.map((a) => (
+              <option key={a.id} value={a.id}>{a.displayName}</option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="flex flex-col gap-1 text-sm">
         Name
         <input name="name" className={input} placeholder={adapter?.displayName} />
@@ -60,10 +66,20 @@ export function AddSourceForm({ adapters }: { adapters: AdapterInfo[] }) {
         </>
       )}
       <div className="flex items-center gap-3 sm:col-span-2">
-        <button className={btnPrimary} disabled={pending}>Add source</button>
+        <button name="intent" value="save" className={btnPrimary} disabled={pending}>Add source</button>
+        <TestButton pending={pending} />
         <Result state={state} />
       </div>
     </form>
+  );
+}
+
+/** Second submit button: the action branches on `intent`, so one form does both (no second action needed). */
+function TestButton({ pending }: { pending: boolean }) {
+  return (
+    <button name="intent" value="test" className={btn} disabled={pending}>
+      {pending ? 'Testing…' : 'Test'}
+    </button>
   );
 }
 
@@ -77,7 +93,8 @@ export function EditSourceForm({ sourceId, name, adapter, values }: { sourceId: 
       </label>
       <Fields adapter={adapter} values={values} />
       <div className="flex items-center gap-3 sm:col-span-2">
-        <button className={btnPrimary} disabled={pending}>Save</button>
+        <button name="intent" value="save" className={btnPrimary} disabled={pending}>Save</button>
+        <TestButton pending={pending} />
         <Result state={state} />
       </div>
     </form>

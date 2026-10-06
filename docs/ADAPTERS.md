@@ -16,6 +16,7 @@ An adapter implements `JobSourceAdapter` from `src/server/sources/types.ts`:
 | `minIntervalMinutes` | The scanner never fetches more often than this. Respect the source's terms. |
 | `requiresEnv` | Environment variables it needs, such as an API key. Without them the source is skipped with a clear message. |
 | `defaultInstances` | Sources created on first start, so they work with no setup. Only for sources that need no key and allow it. |
+| `capabilities` | What the *Job sources* catalog may claim about it. Only the ones the code really does. |
 | `fetch(ctx)` | An async generator yielding `RawListing`s. |
 
 `fetch` receives:
@@ -71,7 +72,35 @@ export const remotive: JobSourceAdapter<Record<string, never>> = {
 };
 ```
 
-Register it in `src/server/sources/adapters/index.ts` (`BUILT_IN_ADAPTERS`).
+Register it in `src/server/sources/adapters/index.ts` (`BUILT_IN_ADAPTERS`). It then appears in the platform catalog by itself: nothing in the UI knows about individual platforms.
+
+## Capabilities and the platform catalog
+
+The *Job sources* page is a catalog built from the registry (`src/server/sources/platforms.ts`), not from per-platform UI code. Each entry shows what the connector actually does, so the user is never promised something that isn't implemented.
+
+Two capabilities are derived from the contract and must not be declared by hand:
+
+| Capability | Derived from |
+| --- | --- |
+| `automaticScan` | every registered adapter that isn't `hidden` |
+| `detectsClosedJobs` | `completeSnapshot: true` |
+
+The rest an adapter declares itself, and only if it is true:
+
+| Capability | Means |
+| --- | --- |
+| `search` | it uses `ctx.hints` to look for the user's target titles |
+| `findsBoards` | it calls `ctx.registerSource` to add company boards it finds |
+| `readsWebPages` | it reads pages with `ctx.pages` (the stealth browser), so it only runs in the worker |
+
+`addByUrl` and `pasteJob` belong to **manual platforms**: sites with no connector at all (LinkedIn, Indeed, Naukri, Wellfound, …). They are listed in `MANUAL_PLATFORMS` so the user can see the supported way in, and they have no adapter, no config and no fetch path — nothing in the scan loop can reach them. A manual platform gets `addByUrl` only when it is outside `NEVER_FETCH`; a site on that list can only ever be pasted by hand.
+
+Never add an adapter for a site on the never-read list, and never give a platform a capability to make the UI look better.
+
+## Testing a source before saving it
+
+The *Add* form has a **Test** button. It runs the adapter once from the web process with a 15-second limit and reports the first few listings (`src/server/sources/probe.ts`), so a wrong board name is caught before the source is saved. Adapters with `readsWebPages` are never run there — their browser belongs to the worker — and the button says so.
+
 
 ## Testing
 

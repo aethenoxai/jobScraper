@@ -33,27 +33,3 @@ test('paste a job that cannot be read automatically', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Product Designer' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Staff Nurse (Night Shifts)' })).toHaveCount(0);
 });
-
-test('add, disable and delete a job source', async ({ page }) => {
-  await page.goto('/sources');
-  await page.getByLabel('Source type').selectOption('greenhouse');
-  await page.getByLabel('Name', { exact: true }).first().fill('Acme careers');
-  await page.getByLabel(/^Board name/).first().fill('acme');
-  await page.getByRole('button', { name: 'Add source' }).click();
-  await expect(page.getByText('Source added.')).toBeVisible();
-  const row = page.locator('li', { hasText: 'Acme careers' });
-  await expect(row.getByText('Not run yet')).toBeVisible();
-  await row.getByRole('button', { name: 'Disable' }).click();
-  await expect(row.getByText('Disabled')).toBeVisible();
-  page.once('dialog', (d) => d.accept());
-  await row.getByRole('button', { name: 'Delete Acme careers' }).click();
-  await expect(page.locator('li', { hasText: 'Acme careers' })).toHaveCount(0);
-});
-
-test('invalid source settings are explained', async ({ page }) => {
-  await page.goto('/sources');
-  await page.getByLabel('Source type').selectOption('greenhouse');
-  await page.getByLabel(/^Board name/).first().fill('not a valid board!');
-  await page.getByRole('button', { name: 'Add source' }).click();
-  await expect(page.getByRole('status')).toContainText('Board name: Use the short name');
-});

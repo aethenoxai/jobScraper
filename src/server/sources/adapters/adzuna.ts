@@ -30,6 +30,7 @@ export const adzuna: JobSourceAdapter<{ country: string; where?: string }> = {
     { key: 'where', label: 'City or region', placeholder: 'Bengaluru', optional: true },
   ],
   configSchema: z.object({ country: z.string().trim().toLowerCase().regex(/^[a-z]{2}$/), where: z.string().trim().optional() }),
+  capabilities: ['search'],
   completeSnapshot: false,
   minIntervalMinutes: 120,
   requiresEnv: ['ADZUNA_APP_ID', 'ADZUNA_APP_KEY'],

@@ -31,6 +31,7 @@ export const himalayas: JobSourceAdapter<Record<string, never>> = {
   homepage: 'https://himalayas.app',
   configFields: [],
   configSchema: z.object({}).strict() as unknown as z.ZodType<Record<string, never>>,
+  capabilities: ['search'],
   completeSnapshot: false,
   minIntervalMinutes: 120,
   defaultInstances: [{ name: 'Himalayas', config: {}, enabled: true }],
