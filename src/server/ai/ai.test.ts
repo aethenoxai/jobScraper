@@ -235,7 +235,7 @@ describe('ai', () => {
       modelFactory: () => mockModel('{"name":"Asha"}'),
     });
     await ask(ai, 'jd-analysis');
-    await expect(ask(ai, 'jd-analysis')).rejects.toThrow(/claude-code.*1 AI calls/);
+    await expect(ask(ai, 'jd-analysis')).rejects.toThrow(/1 AI calls through your claude-code plan/);
     await expect(ask(ai, 'cv-extract')).resolves.toEqual({ name: 'Asha' });
   });
 
