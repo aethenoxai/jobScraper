@@ -27,7 +27,7 @@ Each AI task has its own provider and model, so you can, for example, read CVs w
 | --- | --- |
 | `OPENAI_API_KEY` | OpenAI |
 | `ANTHROPIC_API_KEY` | Anthropic |
-| `GEMINI_API_KEY` | Google (Gemini). Also read as `GOOGLE_GENERATIVE_AI_API_KEY` |
+| `GEMINI_API_KEY` | Google (Gemini). Also read as `GOOGLE_GENERATIVE_AI_API_KEY`; if both are set, `GEMINI_API_KEY` is the one used (a key pasted in the app is saved as `GOOGLE_GENERATIVE_AI_API_KEY`) |
 | `OPENAI_COMPATIBLE_API_KEY` | Any OpenAI-compatible server (set its base URL in the app; the key is optional, many local servers take none) |
 | `OLLAMA_BASE_URL` | Ollama, if not at `http://127.0.0.1:11434/api` (no key needed) |
 
