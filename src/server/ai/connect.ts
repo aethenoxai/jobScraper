@@ -35,6 +35,8 @@ export interface ConnectResult {
   message: string;
 }
 
+const isHttpUrl = (v: string) => URL.canParse(v) && /^https?:$/.test(new URL(v).protocol);
+
 /**
  * Saves a pasted key to .env, then makes one small structured call to the given provider and model. Nothing but the
  * key is saved: testing never changes where any task is routed.
@@ -43,6 +45,9 @@ export async function testProvider(deps: ConnectDeps, req: TestProviderRequest):
   const provider = req.provider as AiProvider;
   if (!(AI_PROVIDERS as readonly string[]).includes(provider) || provider === 'none') return { ok: false, message: 'Choose an AI provider.' };
   const label = PROVIDER_LABELS[provider];
+  const stored = migrateAiSettings(deps.settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), deps.env());
+  const baseUrl = req.baseUrl?.trim() || stored.providers[provider]?.baseUrl || null;
+  if (baseUrl && !isHttpUrl(baseUrl)) return { ok: false, message: 'The server address must be a full URL such as http://127.0.0.1:11434/api.' };
   const keyVar = KEY_ENV_VAR[provider];
   const key = req.apiKey?.trim() ?? '';
   // Whatever happens next, a pasted key never appears in a message or a log line.
@@ -60,9 +65,6 @@ export async function testProvider(deps: ConnectDeps, req: TestProviderRequest):
   }
 
   // A throwaway Ai over a private copy of the settings, routed at the provider under test. The stored row is never written.
-  const stored = migrateAiSettings(deps.settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), deps.env());
-  const baseUrl = req.baseUrl?.trim() || stored.providers[provider]?.baseUrl || null;
-  if (baseUrl && !URL.canParse(baseUrl)) return { ok: false, message: 'The server address must be a full URL such as http://127.0.0.1:11434/api.' };
   const candidate = {
     providers: { [provider]: { dailyBudgetUsd: null, dailyCallLimit: null, ...stored.providers[provider], baseUrl } },
     tasks: { 'cv-extract': { provider, model: req.model.trim() || null } },

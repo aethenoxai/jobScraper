@@ -81,6 +81,15 @@ describe('testProvider: tries one provider and model', () => {
     expect(await testProvider(s.deps, { provider: 'ollama', model: 'llama3.1', baseUrl: 'myserver.local/v1' })).toEqual({ ok: false, message: expect.stringMatching(/full URL/) });
   });
 
+  it('refuses a bad address before saving any pasted key, and only accepts http(s)', async () => {
+    const s = setup();
+    for (const baseUrl of ['myserver.local/v1', 'file:///etc/passwd', 'javascript:alert(1)']) {
+      const r = await testProvider(s.deps, { provider: 'openai-compatible', model: 'm', apiKey: 'sk-pasted-123456', baseUrl });
+      expect(r).toEqual({ ok: false, message: expect.stringMatching(/address.*full URL/) });
+    }
+    expect(s.written).toEqual([]);
+  });
+
   it('saves a pasted key to .env, never to the settings', async () => {
     const s = setup();
     const r = await testProvider(s.deps, { provider: 'openai', model: 'gpt-5-mini', apiKey: ' sk-pasted-123456 ' });
