@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { btn, input } from '@/components/ui';
-import { defaultModelFor, taskRow } from '@/server/ai/provider-view';
+import { defaultModelFor, taskRow } from '@/server/ai/task-rows';
 import { AI_PROVIDERS, AI_TASKS, PROVIDER_LABELS, TASK_LABELS, type AiProvider, type AiSettings, type AiTask } from '@/server/ai/settings';
 
 const OTHER = '__other';
@@ -66,7 +66,7 @@ export function AiTaskTable({ tasks, models, notes = {} }: { tasks: AiSettings['
               {rows[t].provider !== 'none' && !rows[t].model.trim() ? (
                 <p role="alert" data-testid={`task-note-${t}`} className="text-amber-700 dark:text-amber-400">Choose a model for this task, or it runs offline.</p>
               ) : (
-                notes[t] && <p data-testid={`task-note-${t}`} className="text-amber-700 dark:text-amber-400">{notes[t]}</p>
+                notes[t] && rows[t].provider === (tasks[t]?.provider ?? 'none') && <p data-testid={`task-note-${t}`} className="text-amber-700 dark:text-amber-400">{notes[t]}</p>
               )}
             </div>
             {pair(rows[t], (r) => patch(t, r), TASK_LABELS[t].title.toLowerCase(), (f) => `tasks.${t}.${f}`)}

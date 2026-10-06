@@ -4,7 +4,8 @@ import { createTempDb } from '../../../tests/helpers/temp-db';
 import { createSettings } from '../settings';
 import { AI_SETTINGS_KEY } from './settings';
 import { migrateAiSettings } from './settings';
-import { taskRow, updateAiSettings, aiStateLine, applyProviderForm, applyTaskForm, defaultModelFor, limitReached, modelNote, providerRows, testBaseUrl, testModelFor, type ProviderStatusLike } from './provider-view';
+import { defaultModelFor, taskRow } from './task-rows';
+import { updateAiSettings, aiStateLine, applyProviderForm, applyTaskForm, limitReached, modelNote, providerRows, testBaseUrl, testModelFor, type ProviderStatusLike } from './provider-view';
 import { DEFAULT_AI_SETTINGS, type AiSettings } from './settings';
 
 const status = (over: Partial<ProviderStatusLike>): ProviderStatusLike => ({ provider: 'google', configured: true, reason: null, keyEnvVar: 'GOOGLE_GENERATIVE_AI_API_KEY', keyPresent: true, baseUrl: null, spentTodayUsd: 0, callsToday: 0, dailyBudgetUsd: 2, dailyCallLimit: 300, ...over });

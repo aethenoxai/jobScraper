@@ -1,6 +1,7 @@
 /**
- * Pure helpers behind Settings → AI → Providers: what each row says, which tasks a missing key would break,
- * and how the card's form changes the saved settings. No I/O, so it is unit-tested directly.
+ * Helpers behind Settings → AI → Providers: what each row says, which tasks a missing key would break,
+ * and how the forms change the saved settings. Server-side only (updateAiSettings touches the settings store);
+ * the client table imports from ./task-rows instead. Apart from updateAiSettings, pure and unit-tested directly.
  */
 import { AI_PROVIDERS, AI_TASKS, DEFAULT_MODELS, PROVIDER_LABELS, ProviderConfigSchema, SUBSCRIPTION_PROVIDERS, TASK_LABELS, type AiProvider, type AiRoute, type AiSettings, type AiTask } from './settings';
 import type { ModelList } from './models';
@@ -115,11 +116,6 @@ export function testBaseUrl(provider: AiProvider, baseUrl: string): string | und
   return (provider === 'ollama' || provider === 'openai-compatible') && baseUrl.trim() ? baseUrl.trim() : undefined;
 }
 
-/** The model a task gets when its provider is chosen: the provider's default, else the first listed one, else empty (the user types it). */
-export function defaultModelFor(provider: AiProvider, listed: string[]): string {
-  return provider === 'none' ? '' : DEFAULT_MODELS[provider].fast ?? listed[0] ?? '';
-}
-
 const TASK_FIELD = /^tasks\.([^.]+)\.(provider|model)$/;
 
 /**
@@ -161,11 +157,6 @@ export function aiStateLine(tasks: Array<{ task: AiTask; provider: AiProvider; c
   if (stuck.length) parts.push(`Not ready, so on offline rules for now: ${list(stuck.map((t) => title(t.task)))}.`);
   if (paused.length) parts.push(`Daily limit reached, on offline rules until tomorrow: ${list(paused.map((t) => title(t.task)))}.`);
   return parts.join(' ');
-}
-
-/** One table row as the form shows it. A model the provider's list doesn't contain is `other`, so it is visible in the free-text field. */
-export function taskRow(provider: AiProvider, model: string | null, listed: string[]): { provider: AiProvider; model: string; other: boolean } {
-  return { provider, model: model ?? '', other: provider !== 'none' && !!model && !listed.includes(model) };
 }
 
 /** Changes the saved AI settings in one immediate transaction, so two saves racing each other can't drop one another's changes. */
