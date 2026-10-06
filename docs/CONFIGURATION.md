@@ -21,7 +21,7 @@ Wrap a value that contains `#`, `$` or spaces in single quotes, for example `APP
 
 ## AI provider
 
-Setup asks for an AI model and tests it before you go on: it reads your CV and judges close matches. Later you can change it in **Settings → AI provider**, or choose "None" there to work with offline rules only. Only the key goes in `.env`: a key pasted during setup is written there for you (into the env file that already sets it, otherwise `.env`, readable only by you) and used without a restart. In Docker, put it in the `.env` next to `docker-compose.yml` and run `docker compose up -d`.
+Each AI task has its own provider and model, so you can, for example, read CVs with one company and write letters with another. Setup asks for them and tests them before you go on. Later, change them in **Settings → AI provider**. Setting a task to "None" runs that task with offline rules and sends nothing. Only the keys go in `.env`: a key pasted in the app is written there for you (into the env file that already sets it, otherwise `.env`, readable only by you) and used without a restart. In Docker, put it in the `.env` next to `docker-compose.yml` and run `docker compose up -d`.
 
 | Variable | For |
 | --- | --- |
@@ -31,14 +31,29 @@ Setup asks for an AI model and tests it before you go on: it reads your CV and j
 | `OPENAI_COMPATIBLE_API_KEY` | Any OpenAI-compatible server (set its base URL in the app; the key is optional, many local servers take none) |
 | `OLLAMA_BASE_URL` | Ollama, if not at `http://127.0.0.1:11434/api` (no key needed) |
 
-**Reading your CV always uses Gemini 3 Flash** (`gemini-3-flash-preview`) when a `GEMINI_API_KEY` is set, whatever provider you chose: it is the best value for reading documents and it reads your PDF itself instead of text pulled out of it. Costs about a cent per CV and counts against the daily budget. Without that key, the provider you chose reads the CV text. Everything else (matching, tailoring, letters) always uses your chosen provider.
-
 Two choices need no key:
 
 - **ChatGPT (sign in with your plan):** *Sign in with ChatGPT* in setup or on the AI page. OpenAI lets open-source apps that run on your own computer use your ChatGPT Plus or Pro plan this way. Open Job Scraper at `http://127.0.0.1:<PORT>` (not `localhost`) before signing in: OpenAI sends you back to `http://127.0.0.1:<PORT>/callback` and accepts no other address. The sign-in is kept in the database, like the Gmail and Outlook ones.
 - **Claude (through your Claude Code):** Job Scraper runs the [Claude Code](https://claude.com/claude-code) installed on this computer (`claude -p`), signed in with your own account (`claude auth login`). It never sees your Claude password or tokens. Not available in Docker. If `ANTHROPIC_API_KEY` is set in the shell that starts Job Scraper, Claude Code bills that key instead of your plan. Anthropic sets the terms for using Claude Code from other tools and may change them.
 
-The AI page also sets a **daily spending limit**; AI work pauses for the day when it is reached. Plans have no per-call price, so for them it sets a **number of AI calls per day** instead (300 by default), so matching can't use up your plan. Without a provider, matching and tailoring use offline rules.
+### Which model runs which task
+
+| Task | What it does |
+| --- | --- |
+| Reading your CV | Turns your CV into your profile |
+| Understanding a job post | Pulls the requirements out of a posting |
+| Scoring a match | Judges how well you fit each requirement |
+| Reading a job page | Extracts a job from a page with no structured data |
+| Tailoring your CV | Writes the CV for one job |
+| Writing a cover letter | Writes the letter |
+| Answering application forms | Fills in questions on application forms |
+| Sorting your inbox | Classifies replies to your applications |
+
+On a fresh install each task starts on the first provider that is ready. Reading your CV goes to Gemini 3 Flash (`gemini-3-flash-preview`) when a Gemini key is present: it is good value for documents and gets the PDF itself instead of extracted text. Change any of them. The model lists are fetched from each provider when its key is present, with a built-in list as fallback; you can always type a model that is not listed.
+
+What leaves your computer depends on the task, and different tasks can go to different companies. **Settings → AI provider** shows, for each task, where its data goes.
+
+**Limits are per provider, not global.** Each provider you use has its own daily spending limit ($2 by default), and AI work with that provider pauses for the day when it is reached. The most you can spend in a day is therefore the sum of the limits: with three keyed providers at $2, up to $6. Plans have no per-call price, so the two sign-ins have a **number of AI calls per day** instead (300 by default, also per provider), so matching can't use up your plan. Lower or remove a limit on the AI page.
 
 ## Job sources
 
@@ -134,6 +149,6 @@ The AI versions of the evals (`pnpm eval:cv`, `eval:matching`, `eval:tailoring`,
 | Variable | Meaning |
 | --- | --- |
 | `EVAL_AI_PROVIDER` | `openai` (default), `anthropic`, `google`, `ollama` or `openai-compatible` |
-| `EVAL_AI_MODEL` | The fast model to test (default: the provider's default) |
-| `EVAL_AI_QUALITY_MODEL` | The quality model for tailoring (default: the provider's default) |
+| `EVAL_AI_MODEL` | The model for most tasks (default: the provider's default) |
+| `EVAL_AI_QUALITY_MODEL` | The model for tailoring (default: the provider's default) |
 | `EVAL_AI_BASE_URL` | Server address for `ollama` or `openai-compatible` |

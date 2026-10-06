@@ -5,7 +5,7 @@ Your own job-search assistant that runs on your computer. It looks for jobs that
 - **Local first.** Your CV, applications and history stay on your computer. Nothing is sent anywhere unless you turn on an integration (an AI provider, email, Telegram); [PRIVACY.md](docs/PRIVACY.md) lists exactly what each one receives.
 - **You stay in charge.** Job Scraper never applies on its own. Every application waits for your approval, and you can edit the CV and letter first.
 - **Truthful CVs.** Tailored CVs and letters may reword and reorder your experience, but every fact must come from your profile. Anything that can't be checked against it is kept in your original words.
-- **Works without AI.** Matching and tailoring have offline rules. An AI provider (OpenAI, Anthropic, Google, or a local Ollama) makes them better. You can set a daily spending limit.
+- **Works without AI.** Matching and tailoring have offline rules. An AI provider (OpenAI, Anthropic, Google, or a local Ollama) makes them better. You choose the provider and model for each task, and set a daily spending limit per provider.
 
 ## Quick start
 
