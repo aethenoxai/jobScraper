@@ -33,7 +33,7 @@ A task set to **None** sends nothing: it uses offline rules. With **Ollama** (or
 
 | When | What is sent |
 | --- | --- |
-| Reading your uploaded CV | The CV's text (up to 30,000 characters) |
+| Reading your uploaded CV | The CV's text (up to 30,000 characters). For OpenAI, Anthropic, Google and ChatGPT, your CV (the file itself and its text); other providers receive the text only |
 | Scoring a job against a profile | The job's requirements and title; your target roles, years of experience, profile items (experience, skills, projects, education, certifications, languages; up to 300 characters each) and work-authorisation text |
 | Analysing a job description | The job description |
 | Tailoring a CV / writing a cover letter | Your profile (experience, skills, education, summary, headline) and the job's title, company and description |
@@ -41,7 +41,7 @@ A task set to **None** sends nothing: it uses offline rules. With **Ollama** (or
 | Reading a reply from an employer | The email's sender, subject and text, **only** for emails already linked to one of your applications |
 | Reading a job page found by web search | The page's address and text (no personal data) |
 
-Text you typed yourself into your summary or bullet points is sent as written by the tasks that send those fields. Each provider handles this under its own API terms; check whether yours keeps or trains on API data. Daily limits are set per provider in Settings → AI provider, so the most you can spend in a day is the sum of the limits of the providers you use.
+Text you typed yourself into your summary or bullet points is sent as written by the tasks that send those fields. Each provider handles this under its own API terms; check whether yours keeps or trains on API data. Daily limits are set per provider in Settings → AI provider, so the most you can spend in a day is the sum of the limits of the providers you pay per token for. The two plan sign-ins (ChatGPT and Claude Code) are limited by a daily number of calls instead.
 
 With **Sign in with ChatGPT**, the data of the tasks routed to it goes to OpenAI under your ChatGPT plan; requests are sent with storage at OpenAI turned off (`store: false`). The sign-in tokens are kept in the database, like the email sign-ins. With **Claude through your Claude Code**, the data of the tasks routed to it goes to Anthropic through the Claude Code installed on your computer, under your Claude account's terms. Job Scraper runs it in an empty folder, with its tools and add-ons switched off, and without passing on the keys and passwords from Job Scraper's `.env`.
 
