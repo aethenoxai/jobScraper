@@ -6,7 +6,7 @@ import { AI_PROVIDERS, AI_SETTINGS_KEY, migrateAiSettings, type AiProvider } fro
 import { disconnectChatGpt } from '@/server/ai/chatgpt-auth';
 import { claudeCodeSignOut } from '@/server/ai/claude-code';
 import { testProvider } from '@/server/ai/connect';
-import { applyProviderForm, applyTaskForm, testBaseUrl, testModelFor } from '@/server/ai/provider-view';
+import { applyProviderForm, applyTaskForm, updateAiSettings, testBaseUrl, testModelFor } from '@/server/ai/provider-view';
 import { liveEnv, shellDefines, writeEnvValue } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 
@@ -21,7 +21,7 @@ const readSettings = () => migrateAiSettings(getAppContext().settings.get(AI_SET
 export async function saveProviders(_prev: ProviderActionResult | null, form: FormData): Promise<ProviderActionResult> {
   const fields = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, String(v)]));
   try {
-    getAppContext().settings.set(AI_SETTINGS_KEY, applyProviderForm(readSettings(), fields));
+    updateAiSettings(getAppContext().settings, liveEnv(), (c) => applyProviderForm(c, fields));
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : 'Please check the form.' };
   }
@@ -33,7 +33,7 @@ export async function saveProviders(_prev: ProviderActionResult | null, form: Fo
 export async function saveTasks(_prev: ProviderActionResult | null, form: FormData): Promise<ProviderActionResult> {
   const fields = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, String(v)]));
   try {
-    getAppContext().settings.set(AI_SETTINGS_KEY, applyTaskForm(readSettings(), fields));
+    updateAiSettings(getAppContext().settings, liveEnv(), (c) => applyTaskForm(c, fields));
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : 'Please check the form.' };
   }

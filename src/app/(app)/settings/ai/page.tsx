@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AiSettingsForm } from '@/components/ai-settings-form';
 import { AiProvidersCard, type ProviderCardRow } from '@/components/ai-providers-card';
 import { Card, PageHeader } from '@/components/ui';
-import { AI_PROVIDERS, AI_SETTINGS_KEY, AI_TASKS, migrateAiSettings, type AiProvider } from '@/server/ai';
+import { AI_PROVIDERS, AI_SETTINGS_KEY, AI_TASKS, migrateAiSettings, type AiProvider, type AiTask } from '@/server/ai';
 import { chatGptAccount } from '@/server/ai/chatgpt-auth';
 import { claudeCodeStatus } from '@/server/ai/claude-code';
 import { listModels, type ModelList } from '@/server/ai/models';
@@ -30,7 +30,9 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
     modelNote: r.keyPresent && (!r.needsBaseUrl || r.baseUrl) ? modelNote(r.provider, lists[r.provider]) : null,
   }));
   const models = Object.fromEntries(AI_PROVIDERS.map((p) => [p, lists[p].models])) as Record<AiProvider, string[]>;
-  const stateLine = aiStateLine(AI_TASKS.map((t) => ai.taskStatus(t)), new Set(statuses.filter(limitReached).map((s) => s.provider)));
+  const taskStatuses = AI_TASKS.map((t) => ai.taskStatus(t));
+  const notes = Object.fromEntries(taskStatuses.filter((t) => t.provider !== 'none' && !t.configured && t.reason).map((t) => [t.task, t.reason])) as Partial<Record<AiTask, string>>;
+  const stateLine = aiStateLine(taskStatuses, new Set(statuses.filter(limitReached).map((s) => s.provider)));
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader title="AI provider" subtitle="Job Scraper uses your own AI account: an API key (kept only in your .env file, never shown or stored in the database), your ChatGPT plan, or your own Claude Code." />
@@ -40,7 +42,7 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
         <AiProvidersCard rows={rows} inDocker={inDocker} chatgpt={chatGptAccount(settings)} claudeCode={claudeCode} />
       </Card>
       <Card title="What each task uses">
-        <AiSettingsForm tasks={current.tasks} models={models} />
+        <AiSettingsForm tasks={current.tasks} models={models} notes={notes} />
       </Card>
       <Card title="What leaves your machine">
         <p className="text-sm text-neutral-600 dark:text-neutral-400">

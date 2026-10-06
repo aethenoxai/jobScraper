@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { btn, input } from '@/components/ui';
-import { defaultModelFor } from '@/server/ai/provider-view';
+import { defaultModelFor, taskRow } from '@/server/ai/provider-view';
 import { AI_PROVIDERS, AI_TASKS, PROVIDER_LABELS, TASK_LABELS, type AiProvider, type AiSettings, type AiTask } from '@/server/ai/settings';
 
 const OTHER = '__other';
@@ -13,13 +13,13 @@ type Row = { provider: AiProvider; model: string; other: boolean };
  * `tasks.<id>.provider` / `tasks.<id>.model` for the surrounding <form>; it saves nothing itself.
  * `models` lists each provider's known models; any other model can be typed ("Other…").
  */
-export function AiTaskTable({ tasks, models }: { tasks: AiSettings['tasks']; models: Record<AiProvider, string[]> }) {
+export function AiTaskTable({ tasks, models, notes = {} }: { tasks: AiSettings['tasks']; models: Record<AiProvider, string[]>; notes?: Partial<Record<AiTask, string>> }) {
   const listed = (p: AiProvider) => models[p] ?? [];
-  const toRow = (provider: AiProvider, model: string | null): Row => ({ provider, model: model ?? '', other: provider !== 'none' && !!model && !listed(provider).includes(model) });
+  const toRow = (provider: AiProvider, model: string | null): Row => taskRow(provider, model, listed(provider));
   const [rows, setRows] = useState<Record<AiTask, Row>>(() => Object.fromEntries(AI_TASKS.map((t) => [t, toRow(tasks[t]?.provider ?? 'none', tasks[t]?.model ?? null)])) as Record<AiTask, Row>);
   const [all, setAll] = useState<Row>({ provider: 'none', model: '', other: false });
   const patch = (t: AiTask, r: Row) => setRows((x) => ({ ...x, [t]: r }));
-  const pickProvider = (p: AiProvider): Row => ({ provider: p, model: defaultModelFor(p, listed(p)), other: false });
+  const pickProvider = (p: AiProvider): Row => toRow(p, defaultModelFor(p, listed(p)) || null);
 
   /** Provider + model controls shared by the rows and the apply-to-all chooser. */
   const pair = (row: Row, set: (r: Row) => void, label: string, name?: (f: 'provider' | 'model') => string) => (
@@ -63,6 +63,11 @@ export function AiTaskTable({ tasks, models }: { tasks: AiSettings['tasks']; mod
             <div>
               <b>{TASK_LABELS[t].title}</b>
               <p className="text-neutral-600 dark:text-neutral-400">{TASK_LABELS[t].hint}</p>
+              {rows[t].provider !== 'none' && !rows[t].model.trim() ? (
+                <p role="alert" data-testid={`task-note-${t}`} className="text-amber-700 dark:text-amber-400">Choose a model for this task, or it runs offline.</p>
+              ) : (
+                notes[t] && <p data-testid={`task-note-${t}`} className="text-amber-700 dark:text-amber-400">{notes[t]}</p>
+              )}
             </div>
             {pair(rows[t], (r) => patch(t, r), TASK_LABELS[t].title.toLowerCase(), (f) => `tasks.${t}.${f}`)}
           </li>

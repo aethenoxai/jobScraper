@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { aiStateLine, applyProviderForm, applyTaskForm, defaultModelFor, limitReached, modelNote, providerRows, testBaseUrl, testModelFor, type ProviderStatusLike } from './provider-view';
+import { z } from 'zod';
+import { createTempDb } from '../../../tests/helpers/temp-db';
+import { createSettings } from '../settings';
+import { AI_SETTINGS_KEY } from './settings';
+import { migrateAiSettings } from './settings';
+import { taskRow, updateAiSettings, aiStateLine, applyProviderForm, applyTaskForm, defaultModelFor, limitReached, modelNote, providerRows, testBaseUrl, testModelFor, type ProviderStatusLike } from './provider-view';
 import { DEFAULT_AI_SETTINGS, type AiSettings } from './settings';
 
 const status = (over: Partial<ProviderStatusLike>): ProviderStatusLike => ({ provider: 'google', configured: true, reason: null, keyEnvVar: 'GOOGLE_GENERATIVE_AI_API_KEY', keyPresent: true, baseUrl: null, spentTodayUsd: 0, callsToday: 0, dailyBudgetUsd: 2, dailyCallLimit: 300, ...over });
@@ -154,5 +159,30 @@ describe('limits and the state line', () => {
     expect(mixed).toContain('Offline by choice: understanding a job post.');
     expect(mixed).toContain('Not ready, so on offline rules for now: tailoring your cv.');
     expect(mixed).toContain('Daily limit reached, on offline rules until tomorrow: writing a cover letter.');
+  });
+});
+
+describe('taskRow', () => {
+  it('shows a model missing from the live list in the free-text field', () => {
+    expect(taskRow('ollama', 'llama3.1', ['llama3.1:latest'])).toEqual({ provider: 'ollama', model: 'llama3.1', other: true });
+    expect(taskRow('google', 'gemini-2.5-pro', ['gemini-2.5-pro'])).toMatchObject({ other: false });
+    expect(taskRow('openai', null, ['a'])).toEqual({ provider: 'openai', model: '', other: false });
+    expect(taskRow('none', null, [])).toMatchObject({ other: false });
+  });
+});
+
+describe('updateAiSettings', () => {
+  it('keeps both changes when a provider save and a task save follow each other', () => {
+    const t = createTempDb();
+    try {
+      const settings = createSettings(t.db);
+      updateAiSettings(settings, {}, (c) => applyProviderForm(c, { 'openai.limit': '7' }));
+      updateAiSettings(settings, {}, (c) => applyTaskForm(c, { 'tasks.cv-extract.provider': 'openai', 'tasks.cv-extract.model': 'gpt-5' }));
+      const now = migrateAiSettings(settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), {});
+      expect(now.providers.openai?.dailyBudgetUsd).toBe(7);
+      expect(now.tasks['cv-extract']).toEqual({ provider: 'openai', model: 'gpt-5' });
+    } finally {
+      t.cleanup();
+    }
   });
 });

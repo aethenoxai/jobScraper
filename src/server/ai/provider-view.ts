@@ -4,6 +4,9 @@
  */
 import { AI_PROVIDERS, AI_TASKS, DEFAULT_MODELS, PROVIDER_LABELS, ProviderConfigSchema, SUBSCRIPTION_PROVIDERS, TASK_LABELS, type AiProvider, type AiRoute, type AiSettings, type AiTask } from './settings';
 import type { ModelList } from './models';
+import type { SettingsStore } from '../settings';
+import { z } from 'zod';
+import { AI_SETTINGS_KEY, migrateAiSettings } from './settings';
 
 /** The slice of `ProviderStatus` the card needs (kept structural so this file doesn't import the Ai factory). */
 export interface ProviderStatusLike {
@@ -158,4 +161,14 @@ export function aiStateLine(tasks: Array<{ task: AiTask; provider: AiProvider; c
   if (stuck.length) parts.push(`Not ready, so on offline rules for now: ${list(stuck.map((t) => title(t.task)))}.`);
   if (paused.length) parts.push(`Daily limit reached, on offline rules until tomorrow: ${list(paused.map((t) => title(t.task)))}.`);
   return parts.join(' ');
+}
+
+/** One table row as the form shows it. A model the provider's list doesn't contain is `other`, so it is visible in the free-text field. */
+export function taskRow(provider: AiProvider, model: string | null, listed: string[]): { provider: AiProvider; model: string; other: boolean } {
+  return { provider, model: model ?? '', other: provider !== 'none' && !!model && !listed.includes(model) };
+}
+
+/** Changes the saved AI settings in one immediate transaction, so two saves racing each other can't drop one another's changes. */
+export function updateAiSettings(settings: SettingsStore, env: Record<string, string | undefined>, change: (current: AiSettings) => AiSettings): void {
+  settings.update(AI_SETTINGS_KEY, z.unknown(), undefined, (raw) => change(migrateAiSettings(raw, env)));
 }
