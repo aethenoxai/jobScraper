@@ -7,11 +7,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { AI_SETTINGS_KEY, AiSettingsSchema, createAi, type Ai } from '../src/server/ai';
+import type { Ai } from '../src/server/ai';
+import { evalAi } from './lib/ai';
 import { openDb } from '../src/server/db';
 import { createLogger } from '../src/server/logging';
 import { extractProfile } from '../src/server/profile/extract';
-import { createSettings } from '../src/server/settings';
 import { SYNTHETIC_CVS } from '../tests/fixtures/cvs/synthetic';
 import { scoreCvExtraction } from './lib/score';
 import { loadEnvFiles, runMode } from '../src/server/config/env-files';
@@ -26,16 +26,9 @@ async function main() {
   let ai: Ai | null = null;
   let label = 'offline';
   if (!offline) {
-    const provider = process.env.EVAL_AI_PROVIDER ?? 'openai';
-    const settings = createSettings(db);
-    settings.set(AI_SETTINGS_KEY, AiSettingsSchema.parse({ provider, fastModel: process.env.EVAL_AI_MODEL ?? null, qualityModel: null, baseUrl: process.env.EVAL_AI_BASE_URL ?? null, dailyBudgetUsd: null }));
-    ai = createAi({ db, settings, log: createLogger({ level: 'warn' }) });
-    const status = ai.status();
-    if (!status.configured) {
-      console.error(`AI not configured: ${status.reason}`);
-      process.exit(2);
-    }
-    label = `${provider}-${status.models.fast}`;
+    const e = evalAi(db, createLogger({ level: 'warn' }), { fast: ['cv-extract'] });
+    ai = e.ai;
+    label = `${e.provider}-${e.fast}`;
   }
 
   const rows = [];

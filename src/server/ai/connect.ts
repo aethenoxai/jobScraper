@@ -1,14 +1,12 @@
 /**
- * The first setup step: choose an AI provider and models, save a pasted key to .env, and prove it works with one tiny
- * call before going on (PRD §37: keys live only in .env).
+ * Tests one AI provider and model: saves a pasted key to .env and proves it works with one tiny call (PRD §37: keys live only in .env).
  */
 import { z } from 'zod';
 import type { Db } from '../db';
 import { registerSecret, scrubSecrets, type Logger } from '../logging';
-import { updateOnboarding } from '../onboarding';
 import type { SettingsStore } from '../settings';
 import { createAi, type ModelFactory } from './index';
-import { AI_PROVIDERS, AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS, KEY_ENV_VAR, mergeAiSettings, PROVIDER_LABELS, type AiProvider, type AiSettings } from './settings';
+import { AI_PROVIDERS, AI_SETTINGS_KEY, KEY_ENV_VAR, migrateAiSettings, PROVIDER_LABELS, type AiProvider } from './settings';
 
 export interface ConnectDeps {
   db: Db;
@@ -22,15 +20,14 @@ export interface ConnectDeps {
   /** In Docker the container's settings come from the .env file on the computer: keys can't be saved from inside. */
   inDocker: boolean;
   modelFactory?: ModelFactory;
-  now?: () => Date;
 }
 
-export interface ConnectForm {
+export interface TestProviderRequest {
   provider: string;
+  model: string;
   apiKey?: string;
+  /** Overrides the saved server address for this test only (Ollama, OpenAI-compatible). */
   baseUrl?: string;
-  fastModel?: string;
-  qualityModel?: string;
 }
 
 export interface ConnectResult {
@@ -38,33 +35,16 @@ export interface ConnectResult {
   message: string;
 }
 
-/** Tries the given settings with one small structured call. */
-export async function testAiSettings(deps: Pick<ConnectDeps, 'db' | 'settings' | 'log' | 'env' | 'modelFactory'>, candidate: AiSettings): Promise<ConnectResult> {
-  const overlay: SettingsStore = { ...deps.settings, get: (key, schema, fallback) => (key === AI_SETTINGS_KEY ? (candidate as never) : deps.settings.get(key, schema, fallback)) };
-  const ai = createAi({ db: deps.db, settings: overlay, log: deps.log, env: deps.env, modelFactory: deps.modelFactory });
-  const status = ai.status();
-  if (!status.configured) return { ok: false, message: status.reason ?? 'AI is not configured.' };
-  try {
-    const out = await ai.generateObject({
-      role: 'fast',
-      task: 'connection-test',
-      schema: z.object({ ok: z.boolean() }),
-      system: 'You are a health check. Reply exactly as instructed.',
-      prompt: 'Return {"ok": true}.',
-      timeoutMs: 20_000,
-    });
-    return out.ok ? { ok: true, message: `Connected to ${PROVIDER_LABELS[status.provider]} (${status.models.fast}).` } : { ok: false, message: 'The model answered, but not as expected.' };
-  } catch (err) {
-    return { ok: false, message: `Connection failed: ${scrubSecrets(err instanceof Error ? err.message : String(err)).slice(0, 300)}` };
-  }
-}
-
-export async function connectAi(deps: ConnectDeps, form: ConnectForm): Promise<ConnectResult> {
-  const provider = form.provider as AiProvider;
+/**
+ * Saves a pasted key to .env, then makes one small structured call to the given provider and model. Nothing but the
+ * key is saved: testing never changes where any task is routed.
+ */
+export async function testProvider(deps: ConnectDeps, req: TestProviderRequest): Promise<ConnectResult> {
+  const provider = req.provider as AiProvider;
   if (!(AI_PROVIDERS as readonly string[]).includes(provider) || provider === 'none') return { ok: false, message: 'Choose an AI provider.' };
   const label = PROVIDER_LABELS[provider];
   const keyVar = KEY_ENV_VAR[provider];
-  const key = form.apiKey?.trim() ?? '';
+  const key = req.apiKey?.trim() ?? '';
   // Whatever happens next, a pasted key never appears in a message or a log line.
   registerSecret(key);
   if (keyVar && key) {
@@ -79,17 +59,27 @@ export async function connectAi(deps: ConnectDeps, form: ConnectForm): Promise<C
     return { ok: false, message: `Paste your ${label} API key.` };
   }
 
-  const current = deps.settings.get(AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS);
-  let candidate: AiSettings;
+  // A throwaway Ai over a private copy of the settings, routed at the provider under test. The stored row is never written.
+  const stored = migrateAiSettings(deps.settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), deps.env());
+  const baseUrl = req.baseUrl?.trim() || stored.providers[provider]?.baseUrl || null;
+  const candidate = {
+    providers: { [provider]: { dailyBudgetUsd: null, dailyCallLimit: null, ...stored.providers[provider], baseUrl } },
+    tasks: { 'cv-extract': { provider, model: req.model.trim() || null } },
+  };
+  const overlay: SettingsStore = { ...deps.settings, get: (k, schema, fallback) => (k === AI_SETTINGS_KEY ? (candidate as never) : deps.settings.get(k, schema, fallback)) };
+  const ai = createAi({ db: deps.db, settings: overlay, log: deps.log, env: deps.env, modelFactory: deps.modelFactory });
+  const status = ai.taskStatus('cv-extract');
+  if (!status.configured) return { ok: false, message: status.reason ?? 'AI is not configured.' };
   try {
-    candidate = mergeAiSettings(current, { provider, fastModel: form.fastModel ?? '', qualityModel: form.qualityModel ?? '', baseUrl: form.baseUrl ?? '' });
-  } catch {
-    return { ok: false, message: 'Please check the form: the server address must be a full URL such as http://127.0.0.1:11434/api.' };
+    const out = await ai.generateObject({
+      task: 'cv-extract',
+      schema: z.object({ ok: z.boolean() }),
+      system: 'You are a health check. Reply exactly as instructed.',
+      prompt: 'Return {"ok": true}.',
+      timeoutMs: 20_000,
+    });
+    return out.ok ? { ok: true, message: `Connected to ${label} (${status.model}).` } : { ok: false, message: 'The model answered, but not as expected.' };
+  } catch (err) {
+    return { ok: false, message: `Connection failed: ${scrubSecrets(err instanceof Error ? err.message : String(err)).slice(0, 300)}` };
   }
-  const result = await testAiSettings(deps, candidate);
-  if (!result.ok) return result;
-  deps.settings.set(AI_SETTINGS_KEY, candidate);
-  const now = (deps.now ?? (() => new Date()))().getTime();
-  updateOnboarding(deps.settings, (s) => ({ ...s, aiVerifiedAt: now }));
-  return result;
 }

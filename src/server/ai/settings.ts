@@ -135,26 +135,3 @@ export function migrateAiSettings(raw: unknown, env: Record<string, string | und
   }
   return AiSettingsSchema.parse({ providers, tasks });
 }
-
-/**
- * Applies a submitted settings form on top of the current settings. Fields the form didn't send are kept
- * (so hiding the budget field never removes the budget); model overrides are cleared when the provider changes.
- */
-export function mergeAiSettings(current: AiSettings, form: Record<string, string | undefined>): AiSettings {
-  const has = (k: string) => Object.prototype.hasOwnProperty.call(form, k);
-  const text = (k: string) => {
-    const v = (form[k] ?? '').trim();
-    return v === '' ? null : v;
-  };
-  const provider = has('provider') ? form.provider : current.provider;
-  const providerChanged = provider !== current.provider;
-  const next = {
-    provider,
-    fastModel: has('fastModel') ? text('fastModel') : providerChanged ? null : current.fastModel,
-    qualityModel: has('qualityModel') ? text('qualityModel') : providerChanged ? null : current.qualityModel,
-    baseUrl: has('baseUrl') ? text('baseUrl') : providerChanged ? null : current.baseUrl,
-    dailyBudgetUsd: has('dailyBudgetUsd') ? (text('dailyBudgetUsd') === null ? null : Number(form.dailyBudgetUsd)) : current.dailyBudgetUsd,
-    dailyCallLimit: has('dailyCallLimit') ? (text('dailyCallLimit') === null ? null : Number(form.dailyCallLimit)) : current.dailyCallLimit,
-  };
-  return AiSettingsSchema.parse(next);
-}

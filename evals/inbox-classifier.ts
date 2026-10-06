@@ -8,10 +8,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { AI_SETTINGS_KEY, AiSettingsSchema, createAi, type Ai } from '../src/server/ai';
+import type { Ai } from '../src/server/ai';
+import { evalAi } from './lib/ai';
 import { openDb } from '../src/server/db';
 import { createLogger } from '../src/server/logging';
-import { createSettings } from '../src/server/settings';
 import { classifyMessage } from '../src/server/tracking/classify';
 import { EVAL_EMAILS } from './datasets/inbox';
 import { loadEnvFiles, runMode } from '../src/server/config/env-files';
@@ -24,15 +24,9 @@ async function main() {
   let ai: Ai | null = null;
   let label = 'offline';
   if (!offline) {
-    const settings = createSettings(db);
-    const provider = process.env.EVAL_AI_PROVIDER ?? 'openai';
-    settings.set(AI_SETTINGS_KEY, AiSettingsSchema.parse({ provider, fastModel: process.env.EVAL_AI_MODEL ?? null, qualityModel: null, baseUrl: process.env.EVAL_AI_BASE_URL ?? null, dailyBudgetUsd: null }));
-    ai = createAi({ db, settings, log: createLogger({ level: 'warn' }) });
-    if (!ai.status().configured) {
-      console.error(`AI not configured: ${ai.status().reason}`);
-      process.exit(2);
-    }
-    label = `${provider}-${ai.status().models.fast}`;
+    const e = evalAi(db, createLogger({ level: 'warn' }), { fast: ['inbox-classify'] });
+    ai = e.ai;
+    label = `${e.provider}-${e.fast}`;
   }
   const rows: Array<{ subject: string; expected: string; got: string; confidence: number; method: string }> = [];
   for (const m of EVAL_EMAILS) {

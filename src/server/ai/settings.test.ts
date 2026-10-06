@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_AI_SETTINGS, mergeAiSettings, AI_TASKS, migrateAiSettings } from './settings';
+import { DEFAULT_AI_SETTINGS, AI_TASKS, migrateAiSettings } from './settings';
 
 describe('migrateAiSettings', () => {
   const old = { provider: 'claude-code' as const, fastModel: 'haiku', qualityModel: 'sonnet', baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 };

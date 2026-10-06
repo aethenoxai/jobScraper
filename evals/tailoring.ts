@@ -10,12 +10,12 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { AI_SETTINGS_KEY, AiSettingsSchema, createAi, type Ai } from '../src/server/ai';
+import type { Ai } from '../src/server/ai';
+import { evalAi } from './lib/ai';
 import { openDb } from '../src/server/db';
 import { createLogger } from '../src/server/logging';
 import { analyzeJob } from '../src/server/matching/analysis';
 import { assignIds } from '../src/server/profile/model';
-import { createSettings } from '../src/server/settings';
 import { tailorCv } from '../src/server/tailoring/ai';
 import { validateTailoredCv } from '../src/server/tailoring/validate';
 import { EVAL_JOBS, EVAL_PROFILES } from './datasets/matching';
@@ -34,15 +34,9 @@ async function main() {
   let ai: Ai | null = null;
   let label = `offline-${intensity}`;
   if (!offline) {
-    const settings = createSettings(db);
-    const provider = process.env.EVAL_AI_PROVIDER ?? 'openai';
-    settings.set(AI_SETTINGS_KEY, AiSettingsSchema.parse({ provider, fastModel: process.env.EVAL_AI_MODEL ?? null, qualityModel: process.env.EVAL_AI_QUALITY_MODEL ?? null, baseUrl: process.env.EVAL_AI_BASE_URL ?? null, dailyBudgetUsd: null }));
-    ai = createAi({ db, settings, log });
-    if (!ai.status().configured) {
-      console.error(`AI not configured: ${ai.status().reason}`);
-      process.exit(2);
-    }
-    label = `${provider}-${ai.status().models.quality}-${intensity}`;
+    const e = evalAi(db, log, { fast: ['jd-analysis'], quality: ['cv-tailor', 'cover-letter'] });
+    ai = e.ai;
+    label = `${e.provider}-${e.quality}-${intensity}`;
   }
 
   // 1. The validator itself: every fabrication flagged, no normal edit flagged (no model needed).

@@ -7,7 +7,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { AI_SETTINGS_KEY, AiSettingsSchema, createAi, type Ai } from '../src/server/ai';
+import type { Ai } from '../src/server/ai';
+import { evalAi } from './lib/ai';
 import { openDb } from '../src/server/db';
 import { sources } from '../src/server/db/schema';
 import { createIngestor } from '../src/server/jobs/ingest';
@@ -15,7 +16,6 @@ import { createLogger } from '../src/server/logging';
 import { createMatchService } from '../src/server/matching/service';
 import { createProfileService } from '../src/server/profile/service';
 import { createQueue } from '../src/server/queue';
-import { createSettings } from '../src/server/settings';
 import { createFileStore } from '../src/server/storage';
 import { EVAL_JOBS, EVAL_PROFILES } from './datasets/matching';
 import { precisionRecall } from './lib/matching-score';
@@ -33,15 +33,9 @@ async function main() {
   let ai: Ai | null = null;
   let label = 'offline';
   if (!offline) {
-    const settings = createSettings(db);
-    const provider = process.env.EVAL_AI_PROVIDER ?? 'openai';
-    settings.set(AI_SETTINGS_KEY, AiSettingsSchema.parse({ provider, fastModel: process.env.EVAL_AI_MODEL ?? null, qualityModel: null, baseUrl: process.env.EVAL_AI_BASE_URL ?? null, dailyBudgetUsd: null }));
-    ai = createAi({ db, settings, log });
-    if (!ai.status().configured) {
-      console.error(`AI not configured: ${ai.status().reason}`);
-      process.exit(2);
-    }
-    label = `${provider}-${ai.status().models.fast}`;
+    const e = evalAi(db, log, { fast: ['jd-analysis', 'match-evaluate'] });
+    ai = e.ai;
+    label = `${e.provider}-${e.fast}`;
   }
   const profiles = createProfileService({ db, files: createFileStore(path.join(dir, 'files')) });
   const matching = createMatchService({ db, ai, queue: createQueue(db), profiles, log });
