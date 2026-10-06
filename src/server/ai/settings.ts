@@ -60,7 +60,7 @@ export const SUBSCRIPTION_PROVIDERS: readonly AiProvider[] = ['claude-code', 'ch
 export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string | null; quality: string | null }> = {
   openai: { fast: 'gpt-5-mini', quality: 'gpt-5' },
   anthropic: { fast: 'claude-haiku-4-5-20251001', quality: 'claude-sonnet-5-5' },
-  google: { fast: 'gemini-2.5-flash', quality: 'gemini-2.5-pro' },
+  google: { fast: 'gemini-3-flash-preview', quality: 'gemini-2.5-pro' },
   ollama: { fast: 'llama3.1', quality: 'llama3.1' },
   'openai-compatible': { fast: null, quality: null },
   // Claude Code's model names follow the newest model of each family.
@@ -72,7 +72,7 @@ export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string 
 export const MODEL_CHOICES: Record<Exclude<AiProvider, 'none'>, string[]> = {
   openai: ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'],
   anthropic: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-4-5-20251001'],
-  google: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+  google: ['gemini-3-flash-preview', 'gemini-3.1-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'],
   ollama: [],
   'openai-compatible': [],
   'claude-code': ['sonnet', 'opus', 'haiku'],
