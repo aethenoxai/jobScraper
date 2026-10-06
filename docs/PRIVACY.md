@@ -27,7 +27,9 @@ Logs never contain API keys, passwords or tokens: known secrets are removed from
 
 ### AI provider (optional: OpenAI, Anthropic, Google, OpenAI-compatible, or Ollama)
 
-With **no AI provider**, nothing is sent: Job Scraper uses offline rules. With **Ollama** (or any OpenAI-compatible server on your own machine or network), the data below goes to that server and no further. With a cloud provider, the provider receives:
+Each AI task (reading your CV, analysing job descriptions, scoring jobs, reading job pages, tailoring your CV, writing cover letters, answering application forms, and sorting your inbox) has its own provider and model, so different tasks can send data to different companies. For example, your CV can go to Google while matching goes to Anthropic and cover letters to OpenAI. **Settings → AI provider** lists, for each task, what it sends and who receives it.
+
+A task set to **None** sends nothing: it uses offline rules. With **Ollama** (or any OpenAI-compatible server on your own machine or network), a task's data goes to that server and no further. With a cloud provider, that provider receives the following for the tasks routed to it:
 
 | When | What is sent |
 | --- | --- |
@@ -39,9 +41,9 @@ With **no AI provider**, nothing is sent: Job Scraper uses offline rules. With *
 | Reading a reply from an employer | The email's sender, subject and text, **only** for emails already linked to one of your applications |
 | Reading a job page found by web search | The page's address and text (no personal data) |
 
-Each provider handles this under its own API terms; check whether yours keeps or trains on API data. A daily spending limit can be set in Settings → AI provider.
+Text you typed yourself into your summary or bullet points is sent as written by the tasks that send those fields. Each provider handles this under its own API terms; check whether yours keeps or trains on API data. Daily limits are set per provider in Settings → AI provider, so the most you can spend in a day is the sum of the limits of the providers you use.
 
-With **Sign in with ChatGPT**, the same data goes to OpenAI under your ChatGPT plan; requests are sent with storage at OpenAI turned off (`store: false`). The sign-in tokens are kept in the database, like the email sign-ins. With **Claude through your Claude Code**, the same data goes to Anthropic through the Claude Code installed on your computer, under your Claude account's terms. Job Scraper runs it in an empty folder, with its tools and add-ons switched off, and without passing on the keys and passwords from Job Scraper's `.env`.
+With **Sign in with ChatGPT**, the data of the tasks routed to it goes to OpenAI under your ChatGPT plan; requests are sent with storage at OpenAI turned off (`store: false`). The sign-in tokens are kept in the database, like the email sign-ins. With **Claude through your Claude Code**, the data of the tasks routed to it goes to Anthropic through the Claude Code installed on your computer, under your Claude account's terms. Job Scraper runs it in an empty folder, with its tools and add-ons switched off, and without passing on the keys and passwords from Job Scraper's `.env`.
 
 ### Job sources and web search
 
@@ -59,7 +61,7 @@ The job's website receives what a person filling in its form would send: the ans
 
 ### Inbox tracking (IMAP)
 
-Job Scraper signs in to your mailbox read-only (it never marks mail as read, moves or deletes it). For each new message it reads the sender, subject and thread headers. It opens a message only when those point to one of your applications. Only opened messages that are about an application are stored, as the sender, subject and the first 4,000 characters. With an AI provider set, those messages are also sent to it for interpretation (see above). The mailbox password or OAuth token is used only to sign in to your mail server.
+Job Scraper signs in to your mailbox read-only (it never marks mail as read, moves or deletes it). For each new message it reads the sender, subject and thread headers. It opens a message only when those point to one of your applications. Only opened messages that are about an application are stored, as the sender, subject and the first 4,000 characters. If the inbox task has an AI provider, those messages are also sent to it for interpretation (see above). The mailbox password or OAuth token is used only to sign in to your mail server.
 
 ### Notifications
 

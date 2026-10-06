@@ -103,4 +103,9 @@ describe('migrateAiSettings', () => {
     expect(s.providers.google).toEqual({ baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 });
     expect(s.tasks['cv-extract']).toEqual({ provider: 'google', model: 'gemini-3-flash-preview' });
   });
+
+  it('keeps a Google user\'s saved budget when the Gemini seed applies', () => {
+    const s = migrateAiSettings({ ...old, provider: 'google', dailyBudgetUsd: 20, dailyCallLimit: 50 }, { GEMINI_API_KEY: 'k' });
+    expect(s.providers.google).toMatchObject({ dailyBudgetUsd: 20, dailyCallLimit: 50 });
+  });
 });

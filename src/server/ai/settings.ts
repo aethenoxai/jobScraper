@@ -134,7 +134,7 @@ export function migrateAiSettings(raw: unknown, env: Record<string, string | und
   // D-30: CV reading seeds to Gemini 3 Flash where a key exists AND provider is not offline.
   if (provider !== 'none' && (env.GEMINI_API_KEY || env.GOOGLE_GENERATIVE_AI_API_KEY)) {
     tasks['cv-extract'] = { provider: 'google', model: 'gemini-3-flash-preview' };
-    providers.google = { baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 };
+    providers.google ??= { baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 };
   }
   return AiSettingsSchema.parse({ providers, tasks });
 }

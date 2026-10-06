@@ -21,11 +21,14 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
   const { error } = await searchParams;
   const current = migrateAiSettings(settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), liveEnv());
   const inDocker = process.env.JOB_SCRAPER_IN_DOCKER === 'true';
-  const claudeCode = inDocker ? null : await claudeCodeStatus();
   const env = liveEnv();
   const statuses = AI_PROVIDERS.map((p) => ai.providerStatus(p));
   // listModels never throws and falls back to the built-in list (and doesn't call out without a key or address).
-  const lists = Object.fromEntries(await Promise.all(statuses.map(async (s) => [s.provider, await listModels(s.provider, { env, baseUrl: s.baseUrl })] as const))) as Record<AiProvider, ModelList>;
+  const [claudeCode, listed] = await Promise.all([
+    inDocker ? null : claudeCodeStatus(),
+    Promise.all(statuses.map(async (s) => [s.provider, await listModels(s.provider, { env, baseUrl: s.baseUrl })] as const)),
+  ]);
+  const lists = Object.fromEntries(listed) as Record<AiProvider, ModelList>;
   const rows: ProviderCardRow[] = providerRows(statuses, current).map((r) => ({
     ...r,
     modelNote: r.keyPresent && (!r.needsBaseUrl || r.baseUrl) ? modelNote(r.provider, lists[r.provider]) : null,

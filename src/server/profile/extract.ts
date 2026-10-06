@@ -234,6 +234,6 @@ export async function extractProfile(text: string, ai: Ai | null, opts: { now?: 
     if (!valid.success) throw new Error(`AI output failed validation: ${valid.error.issues[0]?.message}`);
     return { data: valid.data, method: 'ai', warnings };
   } catch (err) {
-    throw new CvReadError(`The AI couldn’t read your CV: ${scrubSecrets(err instanceof Error ? err.message : String(err)).replace(/^cv-extract · [^:]*: /, '').slice(0, 200)}`);
+    throw new CvReadError(`The AI couldn’t read your CV: ${scrubSecrets(err instanceof Error ? err.message : String(err)).replace(/^cv-extract · [^ ]+ · .+?: /, '').slice(0, 200)}`);
   }
 }

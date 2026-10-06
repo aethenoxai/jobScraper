@@ -80,6 +80,10 @@ describe('extractProfile', () => {
     await expect(extractProfile(cv.text, fakeAi(new Error(`cv-extract · openai · gpt-5-mini: ${reason}`)))).rejects.toThrow(`The AI couldn’t read your CV: ${reason}`);
   });
 
+  it('strips the route prefix when the model id has a colon', async () => {
+    await expect(extractProfile(cv.text, fakeAi(new Error('cv-extract · ollama · llama3.1:8b: model not found')))).rejects.toThrow(/^The AI couldn.t read your CV: model not found$/);
+  });
+
   it('reads the CV offline when only other tasks have a provider', async () => {
     const other: Ai = routedAi(['jd-analysis'], async () => { throw new Error('must not be called'); });
     expect((await extractProfile(cv.text, other)).method).toBe('heuristic');
