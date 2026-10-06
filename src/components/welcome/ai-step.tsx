@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { disconnectChatGptStep, saveAiStep, signOutClaudeCodeStep } from '@/app/welcome/actions';
 import { AiTaskTable } from '@/components/ai-task-table';
 import { ClaudeCodeAccount, type ClaudeCodeInfo } from '@/components/claude-code-account';
@@ -8,6 +8,7 @@ import { btn, btnPrimary, Card, input, Notice } from '@/components/ui';
 import type { AiProvider, AiSettings, AiTask } from '@/server/ai/settings';
 
 export interface KeyInfo {
+  provider: 'google' | 'openai' | 'anthropic';
   label: string;
   envVar: string;
   present: boolean;
@@ -43,6 +44,8 @@ export function AiStep({
   error: string | null;
 }) {
   const [result, save, pending] = useActionState(saveAiStep, null);
+  // Controlled: React resets uncontrolled fields after the action, which would show the old address after a failed test.
+  const [urls, setUrls] = useState(addresses);
 
   return (
     <Card title="1. Choose the AI for each job">
@@ -55,7 +58,7 @@ export function AiStep({
 
         <div className="space-y-2 text-sm" data-testid="ai-keys">
           <p>
-            <b>API keys</b> are kept only in your <code>.env</code> file and are never typed or shown here:{' '}
+            <b>API keys</b> are kept only in your <code>.env</code> file and are saved only in your <code>.env</code> file and never shown again:{' '}
             {keys.map((k, i) => (
               <span key={k.envVar}>
                 {i > 0 && ' · '}
@@ -65,9 +68,14 @@ export function AiStep({
             .
           </p>
           {inDocker ? (
-            <p className="text-xs text-neutral-500">In Docker, add the key to the <code>.env</code> file next to <code>docker-compose.yml</code> and run <code>docker compose up -d</code>.</p>
+            <p className="text-xs text-neutral-500">In Docker, add a missing key to the <code>.env</code> file next to <code>docker-compose.yml</code> and run <code>docker compose up -d</code>.</p>
           ) : (
-            <p className="text-xs text-neutral-500">Add a missing key to <code>.env</code> and reload this page: it is read right away.</p>
+            keys.filter((k) => !k.present).map((k) => (
+              <label key={k.envVar} className="flex flex-col gap-1">
+                Paste your {k.label} key
+                <input className={input} type="password" name={`apiKey.${k.provider}`} autoComplete="off" spellCheck={false} placeholder="Optional: saved to .env, never shown again" />
+              </label>
+            ))
           )}
         </div>
 
@@ -101,17 +109,18 @@ export function AiStep({
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1">
               Ollama
-              <input name="ollama.baseUrl" className={input} defaultValue={addresses.ollama} placeholder="http://127.0.0.1:11434/api" />
+              <input name="ollama.baseUrl" className={input} value={urls.ollama} onChange={(e) => setUrls({ ...urls, ollama: e.target.value })} placeholder="http://127.0.0.1:11434/api" />
             </label>
             <label className="flex flex-col gap-1">
               OpenAI-compatible server
-              <input name="openai-compatible.baseUrl" className={input} defaultValue={addresses['openai-compatible']} placeholder="http://127.0.0.1:8080/v1" />
+              <input name="openai-compatible.baseUrl" className={input} value={urls['openai-compatible']} onChange={(e) => setUrls({ ...urls, 'openai-compatible': e.target.value })} placeholder="http://127.0.0.1:8080/v1" />
             </label>
           </div>
         </details>
 
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" className={btnPrimary} disabled={pending}>{pending ? 'Testing…' : 'Test and continue'}</button>
+          <span className="text-xs text-neutral-500">If “Reading your CV” is None, no AI is tested: your CV is read on this computer with simpler rules.</span>
           {result && !result.ok && (
             <span role="status" className="text-sm text-red-600">
               {result.message}

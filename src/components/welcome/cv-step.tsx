@@ -28,7 +28,7 @@ function problemWith(file: File): string | null {
 /** What the reading animation says, by how long it has been going. */
 const STAGES = ['Sending your CV to', 'Reading your experience', 'Picking out skills and education', 'Checking every fact against your CV'];
 
-function Reading({ name, model, since }: { name: string; model: string | null; since: number }) {
+function Reading({ name, model, withoutAi, since }: { name: string; model: string | null; withoutAi: boolean; since: number }) {
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
     const tick = () => setSeconds(Math.max(0, Math.floor((Date.now() - since) / 1000)));
@@ -41,7 +41,7 @@ function Reading({ name, model, since }: { name: string; model: string | null; s
     <div className="space-y-2" role="status" aria-live="polite" data-testid="cv-reading">
       <p className="flex items-center gap-2 text-sm">
         <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-neutral-100" />
-        {stage === STAGES[0] ? `${stage} ${model ?? 'the AI'}…` : `${stage}…`}
+        {stage === STAGES[0] ? (withoutAi ? 'Reading your CV on this computer, without AI…' : `${stage} ${model ?? 'the AI'}…`) : `${stage}…`}
       </p>
       <div aria-hidden className="h-1.5 overflow-hidden rounded bg-neutral-200 dark:bg-neutral-800">
         <div className="h-full w-1/3 animate-[cv-progress_1.4s_ease-in-out_infinite] rounded bg-neutral-900 dark:bg-neutral-100" />
@@ -52,7 +52,7 @@ function Reading({ name, model, since }: { name: string; model: string | null; s
 }
 
 /** Step 2: drop or choose the CV; it is uploaded at once and read by the AI model chosen in step 1. */
-export function CvStep({ cv, model, found }: { cv: CvInfo | null; model: string | null; found: string | null }) {
+export function CvStep({ cv, model, withoutAi, found }: { cv: CvInfo | null; model: string | null; withoutAi: boolean; found: string | null }) {
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -111,7 +111,7 @@ export function CvStep({ cv, model, found }: { cv: CvInfo | null; model: string 
         >
           {chooser}
           <span className="text-base font-medium">Drop your CV here or <span className="underline">choose a file</span></span>
-          <span className="text-xs text-neutral-500">PDF or Word (.docx, .doc) · up to 10 MB · read by {model ?? 'your AI model'}</span>
+          <span className="text-xs text-neutral-500">PDF or Word (.docx, .doc) · up to 10 MB · {withoutAi ? 'read on this computer, without AI' : `read by ${model ?? 'your AI model'}`}</span>
         </label>
       ) : (
         <div className="space-y-4">
@@ -134,7 +134,7 @@ export function CvStep({ cv, model, found }: { cv: CvInfo | null; model: string 
               Uploading…
             </p>
           ) : reading ? (
-            <Reading name={cv!.name} model={model} since={cv!.uploadedAt} />
+            <Reading name={cv!.name} model={model} withoutAi={withoutAi} since={cv!.uploadedAt} />
           ) : cv?.status === 'failed' ? (
             <div className="space-y-2" role="alert">
               <p className="text-sm text-red-600">Couldn’t be read. {cv.error}</p>
