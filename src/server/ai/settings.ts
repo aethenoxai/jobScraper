@@ -41,8 +41,8 @@ const ProviderConfigSchema = z.object({
 });
 
 export const AiSettingsSchema = z.object({
-  providers: z.record(z.string(), ProviderConfigSchema).default({}),
-  tasks: z.record(z.string(), RouteSchema).default({}),
+  providers: z.partialRecord(z.enum(AI_PROVIDERS), ProviderConfigSchema).default({}),
+  tasks: z.partialRecord(z.enum(AI_TASKS), RouteSchema).default({}),
 });
 export type AiSettings = z.infer<typeof AiSettingsSchema>;
 export type AiProviderConfig = z.infer<typeof ProviderConfigSchema>;
@@ -108,19 +108,36 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
 
 /**
  * Reads either shape: the new one as-is, the pre-routing one converted. Never writes.
+ * Fills gaps in partial new-shape rows with offline routes; rejects invalid keys.
  */
 export function migrateAiSettings(raw: unknown, env: Record<string, string | undefined>): AiSettings {
-  const asNew = AiSettingsSchema.safeParse(raw);
-  if (asNew.success && Object.keys(asNew.data.tasks).length === AI_TASKS.length) return asNew.data;
+  // Check if raw looks like new shape (has tasks or providers property).
+  const looksLikeNewShape = typeof raw === 'object' && raw !== null && ('tasks' in raw || 'providers' in raw);
+  if (looksLikeNewShape) {
+    // Try to parse as new shape; validation errors mean bad keys or values (throw them).
+    const asNew = AiSettingsSchema.parse(raw);
+    // Fill missing tasks with offline routes.
+    const filledTasks: Record<string, AiRoute> = { ...asNew.tasks };
+    for (const t of AI_TASKS) {
+      if (!(t in filledTasks)) {
+        filledTasks[t] = OFFLINE;
+      }
+    }
+    return AiSettingsSchema.parse({ providers: asNew.providers, tasks: filledTasks });
+  }
+  // Try old shape (e.g., { provider: 'claude-code', fastModel: '...', ... }).
   const old = OldAiSettingsSchema.safeParse(raw);
   if (!old.success) return DEFAULT_AI_SETTINGS;
   const { provider, fastModel, qualityModel, baseUrl, dailyBudgetUsd, dailyCallLimit } = old.data;
   const defaults = provider === 'none' ? { fast: null, quality: null } : DEFAULT_MODELS[provider];
   const route = (q: boolean): AiRoute => (provider === 'none' ? OFFLINE : { provider, model: (q ? qualityModel ?? defaults.quality : fastModel ?? defaults.fast) ?? null });
   const tasks = Object.fromEntries(AI_TASKS.map((t) => [t, route(QUALITY_TASKS.includes(t))])) as Record<AiTask, AiRoute>;
-  // D-30: CV reading stays on Gemini 3 Flash where a Gemini key exists.
-  if (env.GEMINI_API_KEY || env.GOOGLE_GENERATIVE_AI_API_KEY) tasks['cv-extract'] = { provider: 'google', model: 'gemini-3-flash-preview' };
-  const providers = provider === 'none' ? {} : { [provider]: { baseUrl, dailyBudgetUsd, dailyCallLimit } };
+  const providers: Record<string, AiProviderConfig> = provider === 'none' ? {} : { [provider]: { baseUrl, dailyBudgetUsd, dailyCallLimit } };
+  // D-30: CV reading seeds to Gemini 3 Flash where a key exists AND provider is not offline.
+  if (provider !== 'none' && (env.GEMINI_API_KEY || env.GOOGLE_GENERATIVE_AI_API_KEY)) {
+    tasks['cv-extract'] = { provider: 'google', model: 'gemini-3-flash-preview' };
+    providers.google = { baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 };
+  }
   return AiSettingsSchema.parse({ providers, tasks });
 }
 
