@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SYNTHETIC_CVS } from '../../../tests/fixtures/cvs/synthetic';
-import type { Ai, AiStatus } from '../ai';
+import type { Ai } from '../ai';
+import { fakeRoutes } from '../ai/fake';
 import { registerSecret } from '../logging';
 import { AiExtractionSchema, extractProfile, type AiExtraction } from './extract';
 
@@ -8,7 +9,7 @@ const cv = SYNTHETIC_CVS[0]; // Asha Rao, software engineer
 
 function fakeAi(output: AiExtraction | Error): Ai {
   return {
-    status: () => ({ configured: true }) as AiStatus,
+    ...fakeRoutes(['cv-extract']),
     generateObject: async () => {
       if (output instanceof Error) throw output;
       return output as never;
@@ -77,9 +78,19 @@ describe('extractProfile', () => {
     await expect(extractProfile(cv.text, fakeAi(new Error('rate limited')))).rejects.toThrow(/AI couldn.t read your CV: rate limited/);
   });
 
+  it('keeps the provider’s reason visible when the error carries the route prefix', async () => {
+    const reason = 'The model said: ' + 'x'.repeat(120);
+    await expect(extractProfile(cv.text, fakeAi(new Error(`cv-extract · openai · gpt-5-mini: ${reason}`)))).rejects.toThrow(`The AI couldn’t read your CV: ${reason}`);
+  });
+
+  it('reads the CV offline when only other tasks have a provider', async () => {
+    const other: Ai = { ...fakeRoutes(['jd-analysis']), generateObject: async () => { throw new Error('must not be called'); } };
+    expect((await extractProfile(cv.text, other)).method).toBe('heuristic');
+  });
+
   it('gives the model the original document as well as its text', async () => {
     const seen: Array<{ file?: { mediaType: string }; prompt: string }> = [];
-    const ai: Ai = { status: () => ({ configured: true }) as AiStatus, generateObject: async (req) => (seen.push(req), aiOutput() as never) };
+    const ai: Ai = { ...fakeRoutes(['cv-extract']), generateObject: async (req) => (seen.push(req), aiOutput() as never) };
     const file = { data: new Uint8Array([1, 2, 3]), mediaType: 'application/pdf' };
     await extractProfile(cv.text, ai, { file });
     expect(seen[0].file).toBe(file);

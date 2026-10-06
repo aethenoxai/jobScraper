@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { collect, fixtureHttp, fixturePages } from '../sources/testing/contract';
 import type { Ai } from '../ai';
+import { fakeRoutes } from '../ai/fake';
 import { SourceError } from '../sources/types';
 import { planQueries, web } from './web';
 
@@ -146,7 +147,7 @@ describe('web discovery reads pages with Scrapling', () => {
         },
       };
       const asked: string[] = [];
-      const ai = { status: () => ({ configured: true }), generateObject: async (o: { prompt: string }) => (asked.push(o.prompt), { isSingleJobPosting: false, title: null, company: null, location: null }) } as unknown as Ai;
+      const ai = { ...fakeRoutes(['web-job-extract']), generateObject: async (o: { prompt: string }) => (asked.push(o.prompt), { isSingleJobPosting: false, title: null, company: null, location: null }) } as unknown as Ai;
       await collect(web, config, http, { env, hints, pages, ai });
       expect(asked).toEqual([]);
     } finally {

@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
-import type { Ai, AiStatus } from '../ai';
+import type { Ai } from '../ai';
+import { fakeRoutes } from '../ai/fake';
 import { notifications, sources } from '../db/schema';
 import { createIngestor } from '../jobs/ingest';
 import { createLogger } from '../logging';
@@ -60,7 +61,7 @@ describe('application.prepare', () => {
     const { apps, app, deps, ctx } = await setup();
     const tasks: string[] = [];
     const ai = {
-      status: () => ({ configured: true }) as AiStatus,
+      ...fakeRoutes(['cv-tailor', 'cover-letter']),
       generateObject: async (req: { task: string }) => {
         tasks.push(req.task);
         apps.withdraw(app.id); // the user withdraws while the CV is being tailored

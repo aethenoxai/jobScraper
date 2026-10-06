@@ -9,7 +9,8 @@ import { createFileStore } from '../storage';
 import { CvTooLargeError, MAX_CV_BYTES, UnsupportedCvTypeError } from './cv-text';
 import { createCvService, PROFILE_EXTRACT_TASK } from './cv-service';
 import { createProfileService } from './service';
-import type { Ai, AiStatus } from '../ai';
+import type { Ai } from '../ai';
+import { fakeRoutes } from '../ai/fake';
 import { heuristicExtract } from './heuristic';
 
 /** A valid answer from the model (contents don't matter to these tests). */
@@ -129,7 +130,7 @@ describe('cv service', () => {
     const profiles = createProfileService({ db: t.db, files });
     const p = profiles.create('Engineer');
     const slowAi: Ai = {
-      status: () => ({ configured: true }) as AiStatus,
+      ...fakeRoutes(['cv-extract']),
       generateObject: async () => {
         const edited = profiles.get(p.id)!.data;
         edited.personal.fullName = 'Typed By User';
@@ -178,7 +179,7 @@ describe('heuristic output', () => {
       const profiles = createProfileService({ db: t.db, files });
       const seen: Array<{ mediaType?: string }> = [];
       const ai: Ai = {
-        status: () => ({ configured: true }) as AiStatus,
+        ...fakeRoutes(['cv-extract']),
         generateObject: async (req) => {
           seen.push({ mediaType: req.file?.mediaType });
           if (fail) throw new Error('model overloaded');

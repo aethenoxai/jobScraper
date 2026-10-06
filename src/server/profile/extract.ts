@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CV_EXTRACT_MODEL, type Ai } from '../ai';
+import type { Ai } from '../ai';
 import { scrubSecrets } from '../logging';
 import { heuristicExtract, toPartialDate } from './heuristic';
 import { assignIds, CAREER_LEVELS, computeYearsOfExperience, emptyProfile, ProfileDataSchema, SKILL_CATEGORIES, type ProfileData } from './model';
@@ -215,14 +215,12 @@ export class CvReadError extends Error {
 /** `file`: the original document, for models that read files; the text always goes too (and is what facts are checked against). */
 export async function extractProfile(text: string, ai: Ai | null, opts: { now?: Date; file?: { data: Uint8Array; mediaType: string } } = {}): Promise<ExtractionResult> {
   const now = opts.now ?? new Date();
-  if (!ai || !ai.status().configured) {
+  if (!ai || !ai.taskStatus('cv-extract').configured) {
     return { data: heuristicExtract(text, now), method: 'heuristic', warnings: ['Extracted offline without AI; please review every field.'] };
   }
   try {
     const out = await ai.generateObject({
-      role: 'fast',
       task: 'cv-extract',
-      pin: CV_EXTRACT_MODEL,
       schema: AiExtractionSchema,
       system: EXTRACTION_SYSTEM_PROMPT,
       prompt: `CV text:\n"""\n${text.slice(0, 30_000)}\n"""`,
@@ -236,6 +234,6 @@ export async function extractProfile(text: string, ai: Ai | null, opts: { now?: 
     if (!valid.success) throw new Error(`AI output failed validation: ${valid.error.issues[0]?.message}`);
     return { data: valid.data, method: 'ai', warnings };
   } catch (err) {
-    throw new CvReadError(`The AI couldn’t read your CV: ${scrubSecrets(err instanceof Error ? err.message : String(err)).slice(0, 200)}`);
+    throw new CvReadError(`The AI couldn’t read your CV: ${scrubSecrets(err instanceof Error ? err.message : String(err)).replace(/^cv-extract · [^:]*: /, '').slice(0, 200)}`);
   }
 }

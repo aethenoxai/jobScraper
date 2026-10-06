@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, lt, ne, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Ai } from '../ai';
+import { SUBSCRIPTION_PROVIDERS } from '../ai/settings';
 import type { Db } from '../db';
 import { containsText } from '../db/search';
 import { applicationEvents, applications, jobListings, jobs, matches, sources } from '../db/schema';
@@ -190,7 +191,7 @@ export function createMatchService(deps: { db: Db; ai: Ai | null; queue: Queue; 
       if (!job || !profile) throw new Error('Job or profile not found');
       const existing = db.select().from(matches).where(and(eq(matches.profileId, profileId), eq(matches.jobId, jobId))).get();
       // Offline-scored matches are redone once an AI provider is available (e.g. after the daily budget resets).
-      const upgrade = existing?.method === 'heuristic' && !!deps.ai?.status().configured;
+      const upgrade = existing?.method === 'heuristic' && !!deps.ai?.taskStatus('match-evaluate').configured;
       if (!opts.force && !upgrade && existing && existing.jobVersion === job.lastChangedAt.getTime() && existing.profileVersion === profileVersion(profile)) {
         if (existing.sliderValue === profile.sliderValue || existing.method === 'gate') {
           return { matchId: existing.id, score: existing.score, decision: existing.decision, newlySurfaced: false, skipped: true };
@@ -495,8 +496,16 @@ export function createMatchService(deps: { db: Db; ai: Ai | null; queue: Queue; 
      * available: those that could pass the threshold, not retried in the last few hours (a failing key can't loop).
      */
     offlineScoredJobIds(profileId: number, limit = 500): number[] {
-      const st = deps.ai?.status();
-      if (!st?.configured || (st.dailyBudgetUsd !== null && st.spentTodayUsd >= st.dailyBudgetUsd)) return [];
+      // A re-score runs JD analysis and the evaluation: worth it when either task's own route can run today
+      // (one provider's used-up budget must not halt work routed to another).
+      const ai = deps.ai;
+      const canRun = (task: 'jd-analysis' | 'match-evaluate') => {
+        const t = ai?.taskStatus(task);
+        if (!ai || !t?.configured) return false;
+        const p = ai.providerStatus(t.provider);
+        return (p.dailyBudgetUsd === null || p.spentTodayUsd < p.dailyBudgetUsd) && (!SUBSCRIPTION_PROVIDERS.includes(p.provider) || p.dailyCallLimit === null || p.callsToday < p.dailyCallLimit);
+      };
+      if (!canRun('match-evaluate') && !canRun('jd-analysis')) return [];
       const profile = deps.profiles.get(profileId);
       if (!profile) return [];
       const threshold = interpretSlider(profile.sliderValue).matchThreshold;

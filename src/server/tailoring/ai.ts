@@ -60,7 +60,7 @@ export async function tailorCv(input: {
   signal?: AbortSignal;
 }): Promise<TailorResult> {
   const offline = offlineTailor(input.profile, input.analysis, input.intensity);
-  if (!input.ai?.status().configured) return { cv: offline, repairs: 0, firstPassViolations: 0 };
+  if (!input.ai?.taskStatus('cv-tailor').configured) return { cv: offline, repairs: 0, firstPassViolations: 0 };
 
   const jobPrompt = [
     `Job: ${input.job.title} at ${input.job.company}`,
@@ -70,7 +70,7 @@ export async function tailorCv(input: {
     `Tailoring level: ${INTENSITY[input.intensity]}`,
   ].join('\n');
   const ask = (extra = '') =>
-    input.ai!.generateObject({ role: 'quality', task: 'cv-tailor', schema: AiTailorSchema, system: SYSTEM, prompt: `${jobPrompt}\n\nCandidate profile:\n${profilePrompt(input.profile)}${extra}`, timeoutMs: 180_000, signal: input.signal });
+    input.ai!.generateObject({ task: 'cv-tailor', schema: AiTailorSchema, system: SYSTEM, prompt: `${jobPrompt}\n\nCandidate profile:\n${profilePrompt(input.profile)}${extra}`, timeoutMs: 180_000, signal: input.signal });
   // Jobs always stay in the profile's (chronological) order; relevance shows through bullets, not by moving jobs.
   const rank = (id: string) => input.profile.experience.findIndex((x) => x.id === id);
   const complete = (out: Omit<TailoredCv, 'intensity' | 'method'>): TailoredCv => ({ ...out, experience: [...out.experience].sort((a, b) => rank(a.id) - rank(b.id)), intensity: input.intensity, method: 'ai' });

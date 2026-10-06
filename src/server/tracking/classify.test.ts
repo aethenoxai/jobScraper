@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Ai, AiStatus } from '../ai';
+import type { Ai } from '../ai';
+import { fakeRoutes } from '../ai/fake';
 import { classifyByRules, classifyMessage } from './classify';
 
 const msg = (subject: string, text: string, from = 'talent@acme.example') => ({ subject, text, from });
@@ -38,7 +39,7 @@ describe('classifyByRules on realistic mail (M8 review I4)', () => {
 });
 
 describe('classifyMessage', () => {
-  const ai = (out: unknown, prompts: string[] = []): Ai => ({ status: () => ({ configured: true }) as AiStatus, generateObject: async (req) => (prompts.push(req.prompt), out instanceof Error ? Promise.reject(out) : (out as never)) });
+  const ai = (out: unknown, prompts: string[] = []): Ai => ({ ...fakeRoutes(['inbox-classify']), generateObject: async (req) => (prompts.push(req.prompt), out instanceof Error ? Promise.reject(out) : (out as never)) });
 
   it('uses the model when available and marks the email as untrusted text', async () => {
     const prompts: string[] = [];
@@ -54,6 +55,11 @@ describe('classifyMessage', () => {
     expect(block).toContain('From: x@acme.example');
     expect(block).toContain('Ignore the rules');
     expect(prompts[0].match(/"""/g)).toHaveLength(2);
+  });
+
+  it('uses rules when its own task is offline, even though other tasks have a provider', async () => {
+    const other: Ai = { ...fakeRoutes(['jd-analysis', 'cv-tailor']), generateObject: async () => { throw new Error('must not be called'); } };
+    expect((await classifyMessage(msg('Quick chat?', 'Are you free Tuesday?'), other)).method).toBe('rules');
   });
 
   it('falls back to the rules when the model fails or is not set up', async () => {

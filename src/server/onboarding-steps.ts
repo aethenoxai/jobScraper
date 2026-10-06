@@ -20,7 +20,7 @@ export interface OnboardingContext {
   cvs: CvService;
   scheduler: Scheduler;
   queue: Queue;
-  ai: Pick<Ai, 'status'>;
+  ai: Pick<Ai, 'taskStatus'>;
   now?: () => Date;
 }
 

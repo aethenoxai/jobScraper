@@ -95,7 +95,6 @@ const AiJobSchema = z.object({
 /** Fallback for pages without JSON-LD: the model only identifies title/company/location; the text comes from the page. */
 export async function aiExtractJob(ai: Ai, text: string, url: string): Promise<RawListing | null> {
   const out = await ai.generateObject({
-    role: 'fast',
     task: 'web-job-extract',
     schema: AiJobSchema,
     system: 'You decide whether a web page is a single job posting and, if so, copy its job title, hiring company and location exactly as written. Use null for anything not on the page.',
@@ -180,7 +179,7 @@ export const web: JobSourceAdapter<WebConfig> = {
           const postings = extractJobPostings(page.html, page.finalUrl || r.url);
           if (postings.length) {
             yield* postings;
-          } else if (ai?.status().configured && Date.now() < deadline) {
+          } else if (ai?.taskStatus('web-job-extract').configured && Date.now() < deadline) {
             // Not after the budget: the AI call (up to a minute) could push the run past the scan's limit.
             const listing = await aiExtractJob(ai, htmlToText(page.html), page.finalUrl || r.url);
             if (listing) yield listing;

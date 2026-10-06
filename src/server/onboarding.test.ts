@@ -3,6 +3,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../tests/helpers/temp-db';
 import { createAi } from './ai';
+import { fakeRoutes } from './ai/fake';
 import { AI_SETTINGS_KEY } from './ai/settings';
 import { createLogger } from './logging';
 import { isOnboarded, ONBOARDING_KEY, onboardingStatus, readOnboarding, recordEarlierSetup, updateOnboarding } from './onboarding';
@@ -73,6 +74,14 @@ describe('onboarding: one step at a time, worked out from what is saved', () => 
     expect(onboardingStatus(d).step).toBe('cv');
     const noKey = { ...d, ai: createAi({ db: t.db, settings: d.settings, log, env: {} }) };
     expect(onboardingStatus(noKey).step).toBe('ai');
+  });
+
+  it('the AI step looks only at the CV-reading task, not at other tasks', () => {
+    const d = deps();
+    updateOnboarding(d.settings, (s) => ({ ...s, aiVerifiedAt: 1 }));
+    const only = (tasks: Parameters<typeof fakeRoutes>[0]) => ({ ...d, ai: fakeRoutes(tasks) as never });
+    expect(onboardingStatus(only(['jd-analysis', 'match-evaluate'])).step).toBe('ai');
+    expect(onboardingStatus(only(['cv-extract'])).step).not.toBe('ai');
   });
 
   it('waits on the CV step while the CV is being read, and shows a failed one', async () => {

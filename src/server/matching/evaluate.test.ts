@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Ai, AiStatus } from '../ai';
+import type { Ai } from '../ai';
+import { fakeRoutes } from '../ai/fake';
 import { assignIds, DEFAULT_SLIDER, emptyProfile, type ProfileData } from '../profile/model';
 import type { JobRequirements } from './analysis';
 import { evaluateMatch, heuristicEvaluate } from './evaluate';
@@ -55,7 +56,7 @@ describe('evaluateMatch with AI', () => {
     const profile = engineer();
     const skillId = profile.skills[0].id;
     const ai: Ai = {
-      status: () => ({ configured: true }) as AiStatus,
+      ...fakeRoutes(['match-evaluate']),
       generateObject: async () =>
         ({ requirements: [{ index: 0, status: 'met', evidence: [profile.experience[0].id], note: null }, { index: 1, status: 'met', evidence: ['invented_id'], note: null }, { index: 2, status: 'met', evidence: [skillId], note: null }], roleFit: 90, strengths: ['Go'], gaps: [] }) as never,
     };
@@ -67,7 +68,7 @@ describe('evaluateMatch with AI', () => {
   });
 
   it('falls back to the offline evaluation when AI fails', async () => {
-    const ai: Ai = { status: () => ({ configured: true }) as AiStatus, generateObject: async () => { throw new Error('budget'); } };
+    const ai: Ai = { ...fakeRoutes(['match-evaluate']), generateObject: async () => { throw new Error('budget'); } };
     expect((await evaluateMatch(analysis, engineer(), 1, { ai })).method).toBe('heuristic');
   });
 });
@@ -164,7 +165,7 @@ describe('hard-requirement cap only for truly unmet hard requirements (review C1
   });
 
   it('AI "unmet" for authorization becomes partial when the profile does not say', async () => {
-    const ai = { status: () => ({ configured: true }) as never, generateObject: async () => ({ requirements: [{ index: 0, status: 'unmet', evidence: [], note: null }], roleFit: 80, strengths: [], gaps: [] }) as never };
+    const ai = { ...fakeRoutes(['match-evaluate']), generateObject: async () => ({ requirements: [{ index: 0, status: 'unmet', evidence: [], note: null }], roleFit: 80, strengths: [], gaps: [] }) as never };
     const e = await evaluateMatch(base([{ text: 'Must be authorized to work in the US', kind: 'authorization', mandatory: true }]), assignIds(emptyProfile()), 1, { ai });
     expect(e.requirements[0].status).toBe('partial');
   });

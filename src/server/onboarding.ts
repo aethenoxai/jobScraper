@@ -76,7 +76,7 @@ export interface OnboardingStatus {
   cv: MasterCvRecord | null;
 }
 
-export function onboardingStatus(deps: { settings: SettingsStore; profiles: ProfileService; cvs: Pick<CvService, 'list'>; ai: Pick<Ai, 'status'> }): OnboardingStatus {
+export function onboardingStatus(deps: { settings: SettingsStore; profiles: ProfileService; cvs: Pick<CvService, 'list'>; ai: Pick<Ai, 'taskStatus'> }): OnboardingStatus {
   const saved = readOnboarding(deps.settings);
   const profile = saved?.profileId != null ? deps.profiles.get(saved.profileId) : null;
   // Confirmations belong to the onboarding profile: without it they no longer count.
@@ -85,7 +85,7 @@ export function onboardingStatus(deps: { settings: SettingsStore; profiles: Prof
   const status = (step: OnboardingStep): OnboardingStatus => ({ step, state, profile, cv });
 
   if (isOnboarded(deps)) return status('done');
-  if (state.aiVerifiedAt === null || !deps.ai.status().configured) return status('ai');
+  if (state.aiVerifiedAt === null || !deps.ai.taskStatus('cv-extract').configured) return status('ai');
   const reading = cv?.status === 'uploaded' || cv?.status === 'extracting';
   if (!profile || reading || !(cv?.status === 'applied' || filled(profile)) || state.cvAcceptedAt === null) return status('cv');
   if (state.profileConfirmedAt === null) return status('review');

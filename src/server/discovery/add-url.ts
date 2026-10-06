@@ -150,7 +150,7 @@ export async function addJobByUrl(rawUrl: string, deps: AddJobDeps): Promise<Add
   if (!deps.pages) throw new AddJobError(SCRAPLING_MISSING);
   const page = await readPage(deps.pages, url.href, deps.signal);
   let postings = extractJobPostings(page.html, page.finalUrl || url.href);
-  if (!postings.length && deps.ai?.status().configured) {
+  if (!postings.length && deps.ai?.taskStatus('web-job-extract').configured) {
     const listing = await aiExtractJob(deps.ai, htmlToText(page.html), page.finalUrl || url.href).catch(() => null);
     if (listing) postings = [listing];
   }

@@ -211,7 +211,7 @@ const NEGATIVE = /^(?:no|none|never|0|not at all)\b/i;
 
 export async function mapWithAi(fields: FormField[], profile: ProfileData, ai: Ai | null, job: { company: string; title: string; description?: string }, signal?: AbortSignal): Promise<FieldAnswer[]> {
   fields = fields.filter(aiMayAnswer);
-  if (!fields.length || !ai?.status().configured) return [];
+  if (!fields.length || !ai?.taskStatus('form-answers').configured) return [];
   const prompt = [
     `Job: ${job.title} at ${job.company}`,
     'Form fields:',
@@ -222,7 +222,7 @@ export async function mapWithAi(fields: FormField[], profile: ProfileData, ai: A
   ].join('\n');
   let out: z.infer<typeof AiAnswersSchema>;
   try {
-    out = await ai.generateObject({ role: 'fast', task: 'form-answers', schema: AiAnswersSchema, system: SYSTEM, prompt, timeoutMs: 60_000, signal });
+    out = await ai.generateObject({ task: 'form-answers', schema: AiAnswersSchema, system: SYSTEM, prompt, timeoutMs: 60_000, signal });
   } catch (err) {
     if (signal?.aborted) throw err;
     return [];

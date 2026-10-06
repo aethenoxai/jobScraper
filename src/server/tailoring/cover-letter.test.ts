@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Ai, AiStatus } from '../ai';
+import type { Ai } from '../ai';
+import { fakeRoutes } from '../ai/fake';
 import type { JobRequirements } from '../matching/analysis';
 import { assignIds, emptyProfile, type ProfileData } from '../profile/model';
 import { coverLetterText, offlineCoverLetter, validateCoverLetter, writeCoverLetter, type CoverLetter } from './cover-letter';
@@ -34,7 +35,7 @@ const job = { title: 'Senior Backend Engineer', company: 'Acme Payments', descri
 
 function fakeAi(outputs: unknown[], prompts: string[] = []): Ai {
   return {
-    status: () => ({ configured: true }) as AiStatus,
+    ...fakeRoutes(['cover-letter']),
     generateObject: async (req) => {
       prompts.push(req.prompt);
       const next = outputs.shift();

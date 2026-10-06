@@ -1,5 +1,6 @@
 import path from 'node:path';
-import type { Ai, AiStatus } from '../ai';
+import type { Ai } from '../ai';
+import { fakeRoutes } from '../ai/fake';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
 import { sources } from '../db/schema';
@@ -88,8 +89,8 @@ describe('matching tasks', () => {
     }
     // Offline matches exist; without AI nothing is queued again.
     expect(reconcileMatches({ matching, profiles, queue })).toBe(0);
-    let status = { configured: true, provider: 'openai', spentTodayUsd: 0, dailyBudgetUsd: 2 } as unknown as AiStatus;
-    const ai = { status: () => status, generateObject: async () => Promise.reject(new Error('unused')) } as unknown as Ai;
+    let spent = 0;
+    const ai = { taskStatus: fakeRoutes(['match-evaluate']).taskStatus, providerStatus: (p: never) => fakeRoutes([], { spentTodayUsd: spent, dailyBudgetUsd: 2 }).providerStatus(p), generateObject: async () => Promise.reject(new Error('unused')) } as unknown as Ai;
     const withAi = createMatchService({ db: t.db, ai, queue, profiles, log, now: () => new Date(Date.now() + 7 * 3_600_000) });
     expect(reconcileMatches({ matching: withAi, profiles, queue })).toBeGreaterThan(0);
     const queued = (queue.claim('w', [MATCH_TASK])?.payload as { jobIds: number[] }).jobIds;
@@ -99,8 +100,24 @@ describe('matching tasks', () => {
       /* drain */
     }
     // Budget used up: wait for tomorrow.
-    status = { ...status, spentTodayUsd: 2 } as AiStatus;
+    spent = 2;
     expect(reconcileMatches({ matching: withAi, profiles, queue })).toBe(0);
+  });
+
+  it('a used-up budget on one provider does not stop re-scoring routed to another (OD per-task routing)', async () => {
+    const { queue, profiles, matching, ids } = setup();
+    await createMatchEvaluateHandler({ matching, profiles, onSurfaced: () => {} })({ jobIds: ids }, ctx);
+    while (queue.claim('w', [MATCH_TASK])) {
+      /* drain */
+    }
+    const routes = fakeRoutes(['match-evaluate', 'jd-analysis']);
+    // match-evaluate is routed to an exhausted provider, jd-analysis to a healthy one.
+    const ai = {
+      taskStatus: (task: string) => (task === 'match-evaluate' ? { ...routes.taskStatus('match-evaluate'), provider: 'openai' } : { ...routes.taskStatus('jd-analysis'), provider: 'google' }),
+      providerStatus: (p: never) => fakeRoutes([], p === 'openai' ? { spentTodayUsd: 2, dailyBudgetUsd: 2 } : {}).providerStatus(p),
+    } as unknown as Ai;
+    const svc = createMatchService({ db: t.db, ai, queue, profiles, log, now: () => new Date(Date.now() + 7 * 3_600_000) });
+    expect(reconcileMatches({ matching: svc, profiles, queue })).toBeGreaterThan(0);
   });
 
   it('editing contact details doesn’t re-match every job; editing skills does (final review I4)', async () => {

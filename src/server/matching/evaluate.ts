@@ -172,12 +172,11 @@ export async function evaluateMatch(
   deps: { ai: Ai | null; jobTitle?: string; targetTitles?: string[]; signal?: AbortSignal },
 ): Promise<Evaluation> {
   const offline = heuristicEvaluate(analysis, profile, roleFit);
-  if (!deps.ai?.status().configured || analysis.requirements.length === 0) return offline;
+  if (!deps.ai?.taskStatus('match-evaluate').configured || analysis.requirements.length === 0) return offline;
   const items = profileItems(profile);
   const validIds = new Set(items.map((i) => i.id));
   try {
     const out = await deps.ai.generateObject({
-      role: 'fast',
       task: 'match-evaluate',
       schema: AiEvaluationSchema,
       system: EVAL_PROMPT,

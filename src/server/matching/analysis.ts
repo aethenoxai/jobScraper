@@ -109,7 +109,7 @@ export async function analyzeJob(
   const now = deps.now ?? (() => new Date());
   const cached = deps.db.select().from(jobAnalyses).where(eq(jobAnalyses.descriptionHash, listing.descriptionHash)).get();
   const parsedCache = cached ? JobRequirementsSchema.safeParse(cached.requirements) : null;
-  const aiReady = !!deps.ai?.status().configured;
+  const aiReady = !!deps.ai?.taskStatus('jd-analysis').configured;
   if (cached && parsedCache?.success && (cached.method === 'ai' || !aiReady)) return { ...parsedCache.data, method: cached.method };
 
   let result: JobRequirements;
@@ -117,7 +117,6 @@ export async function analyzeJob(
   if (aiReady && listing.description.trim().length > 40) {
     try {
       const out = await deps.ai!.generateObject({
-        role: 'fast',
         task: 'jd-analysis',
         schema: JobRequirementsSchema,
         system: ANALYSIS_PROMPT,
