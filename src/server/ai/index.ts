@@ -5,7 +5,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText, Output, streamText, type LanguageModel } from 'ai';
 import { and, count, eq, gte, inArray, sum } from 'drizzle-orm';
 import { createOllama } from 'ollama-ai-provider-v2';
-import type { z } from 'zod';
+import { z } from 'zod';
 import type { Db } from '../db';
 import { aiUsage } from '../db/schema';
 import type { Logger } from '../logging';
@@ -14,15 +14,13 @@ import { CHATGPT_API_BASE, chatGptAccessToken, chatGptAccount } from './chatgpt-
 import { claudeCodeObject, findClaudeCode } from './claude-code';
 import {
   AI_SETTINGS_KEY,
-  CV_EXTRACT_MODEL,
-  AiSettingsSchema,
-  DEFAULT_AI_SETTINGS,
-  DEFAULT_MODELS,
   KEY_ENV_VAR,
   SUBSCRIPTION_PROVIDERS,
+  migrateAiSettings,
   type AiProvider,
-  type AiSettings,
-  type ModelRole,
+  type AiProviderConfig,
+  type AiRoute,
+  type AiTask,
 } from './settings';
 
 export * from './settings';
@@ -34,39 +32,47 @@ export class AiBudgetExceededError extends Error {
   override name = 'AiBudgetExceededError';
 }
 
-export interface AiStatus {
+export interface ProviderStatus {
   provider: AiProvider;
   configured: boolean;
   reason: string | null;
-  models: { fast: string | null; quality: string | null };
   keyEnvVar: string | null;
   keyPresent: boolean;
+  baseUrl: string | null;
   spentTodayUsd: number;
+  callsToday: number;
   dailyBudgetUsd: number | null;
+  dailyCallLimit: number | null;
+}
+
+export interface TaskStatus {
+  task: AiTask;
+  provider: AiProvider;
+  model: string | null;
+  configured: boolean;
+  reason: string | null;
 }
 
 export interface GenerateObjectRequest<T> {
-  role: ModelRole;
-  /** Short label for the usage ledger, e.g. "cv-extract". */
-  task: string;
+  /** Which task this is: its provider and model come from the settings, and it labels the usage ledger. */
+  task: AiTask;
   schema: z.ZodType<T>;
   system: string;
   prompt: string;
   /** The original document (e.g. the CV as PDF), for providers that read files; the others get the prompt only. */
   file?: { data: Uint8Array; mediaType: string };
-  /** Runs this task on one fixed model instead of the chosen provider's, when its key is set (see CV_EXTRACT_MODEL). */
-  pin?: typeof CV_EXTRACT_MODEL;
   timeoutMs?: number;
   /** Cancels the call (e.g. the worker task was aborted). */
   signal?: AbortSignal;
 }
 
 export interface Ai {
-  status(): AiStatus;
+  taskStatus(task: AiTask): TaskStatus;
+  providerStatus(provider: AiProvider): ProviderStatus;
   generateObject<T>(req: GenerateObjectRequest<T>): Promise<T>;
 }
 
-export type ModelFactory = (provider: Exclude<AiProvider, 'none'>, modelId: string, settings: AiSettings, env: Record<string, string | undefined>) => LanguageModel;
+export type ModelFactory = (provider: Exclude<AiProvider, 'none'>, modelId: string, config: AiProviderConfig, env: Record<string, string | undefined>) => LanguageModel;
 
 /** Rough list prices in USD per 1M tokens (input, output). Estimates only, used for the daily budget. */
 /** Providers whose API takes documents (PDF) next to the prompt. */
@@ -98,7 +104,7 @@ export function estimateCostUsd(provider: AiProvider, model: string, inputTokens
 /** Google's key, under either of the names Google's own tools use. */
 export const googleApiKey = (env: Record<string, string | undefined>) => env.GEMINI_API_KEY || env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-export const defaultModelFactory: ModelFactory = (provider, modelId, settings, env) => {
+export const defaultModelFactory: ModelFactory = (provider, modelId, config, env) => {
   switch (provider) {
     case 'openai':
       return createOpenAI({ apiKey: env.OPENAI_API_KEY })(modelId);
@@ -107,9 +113,9 @@ export const defaultModelFactory: ModelFactory = (provider, modelId, settings, e
     case 'google':
       return createGoogle({ apiKey: googleApiKey(env) })(modelId);
     case 'ollama':
-      return createOllama({ baseURL: settings.baseUrl ?? env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434/api' })(modelId);
+      return createOllama({ baseURL: config.baseUrl ?? env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434/api' })(modelId);
     case 'openai-compatible':
-      return createOpenAICompatible({ name: 'custom', baseURL: settings.baseUrl ?? '', apiKey: env.OPENAI_COMPATIBLE_API_KEY })(modelId);
+      return createOpenAICompatible({ name: 'custom', baseURL: config.baseUrl ?? '', apiKey: env.OPENAI_COMPATIBLE_API_KEY })(modelId);
     case 'claude-code':
       throw new Error('Claude Code is run directly, not through a model factory.');
     case 'chatgpt':
@@ -143,15 +149,20 @@ export function createAi(deps: {
   const readEnv = () => (typeof deps.env === 'function' ? deps.env() : (deps.env ?? process.env));
   const now = deps.now ?? (() => new Date());
   const factory = deps.modelFactory ?? defaultModelFactory;
-  const readSettings = () => deps.settings.get(AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS);
+  // Reads the stored row as-is and migrates it, so installs from before per-task routing keep working.
+  const readSettings = () => migrateAiSettings(deps.settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), readEnv());
+  const NO_ROUTE: AiRoute = { provider: 'none', model: null };
+  const route = (task: AiTask): AiRoute => readSettings().tasks[task] ?? NO_ROUTE;
+  const providerConfig = (provider: AiProvider): AiProviderConfig => readSettings().providers[provider] ?? { baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 };
 
   const startOfToday = () => {
     const start = now();
     start.setHours(0, 0, 0, 0);
     return start;
   };
-  function spentToday(db: Pick<Db, 'select'> = deps.db): number {
-    const row = db.select({ total: sum(aiUsage.costUsd) }).from(aiUsage).where(gte(aiUsage.createdAt, startOfToday())).get();
+  function spentToday(db: Pick<Db, 'select'> = deps.db, provider?: AiProvider): number {
+    const since = gte(aiUsage.createdAt, startOfToday());
+    const row = db.select({ total: sum(aiUsage.costUsd) }).from(aiUsage).where(provider ? and(since, eq(aiUsage.provider, provider)) : since).get();
     return Number(row?.total ?? 0);
   }
   /** Calls made today through subscription providers (the daily call limit counts these). */
@@ -164,42 +175,59 @@ export function createAi(deps: {
     return row?.n ?? 0;
   }
 
-  function status(): AiStatus {
-    const s = readSettings();
-    const base = { provider: s.provider, spentTodayUsd: spentToday(), dailyBudgetUsd: s.dailyBudgetUsd };
-    if (s.provider === 'none') {
-      return { ...base, configured: false, reason: 'No AI provider selected.', models: { fast: null, quality: null }, keyEnvVar: null, keyPresent: false };
-    }
-    const defaults = DEFAULT_MODELS[s.provider];
-    const models = { fast: s.fastModel ?? defaults.fast, quality: s.qualityModel ?? defaults.quality };
-    const keyEnvVar = KEY_ENV_VAR[s.provider] ?? null;
+  function callsToday(provider: AiProvider): number {
+    const row = deps.db.select({ n: count() }).from(aiUsage).where(and(gte(aiUsage.createdAt, startOfToday()), eq(aiUsage.provider, provider))).get();
+    return row?.n ?? 0;
+  }
+
+  function providerStatus(provider: AiProvider): ProviderStatus {
+    const config = providerConfig(provider);
+    const keyEnvVar = KEY_ENV_VAR[provider] ?? null;
     // Local OpenAI-compatible servers often take no key: only its address is required.
-    const keyPresent = s.provider === 'google' ? !!googleApiKey(readEnv()) : keyEnvVar && s.provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
+    const keyPresent = provider === 'google' ? !!googleApiKey(readEnv()) : keyEnvVar && provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
     let reason: string | null = null;
-    if (s.provider === 'claude-code' && !claudeBin()) reason = 'Claude Code isn’t installed on this computer. Install it and sign in with `claude auth login`.';
-    else if (s.provider === 'chatgpt' && !chatGptAccount(deps.settings)) reason = 'Sign in with ChatGPT first.';
-    else if (s.provider === 'chatgpt' && chatGptAccount(deps.settings)?.needsReconnect) reason = 'Sign in with ChatGPT again: OpenAI ended the earlier sign-in.';
+    if (provider === 'none') reason = 'No AI provider selected.';
+    else if (provider === 'claude-code' && !claudeBin()) reason = 'Claude Code isn’t installed on this computer. Install it and sign in with `claude auth login`.';
+    else if (provider === 'chatgpt' && !chatGptAccount(deps.settings)) reason = 'Sign in with ChatGPT first.';
+    else if (provider === 'chatgpt' && chatGptAccount(deps.settings)?.needsReconnect) reason = 'Sign in with ChatGPT again: OpenAI ended the earlier sign-in.';
     else if (!keyPresent) reason = `Add ${keyEnvVar} to your .env file.`;
-    else if (!models.fast || !models.quality) reason = 'Enter model names for this provider.';
-    else if (s.provider === 'openai-compatible' && !s.baseUrl) reason = 'Enter the base URL of your OpenAI-compatible server.';
-    return { ...base, configured: reason === null, reason, models, keyEnvVar, keyPresent };
+    else if (provider === 'openai-compatible' && !config.baseUrl) reason = 'Enter the base URL of your OpenAI-compatible server.';
+    return {
+      provider,
+      configured: reason === null,
+      reason,
+      keyEnvVar,
+      keyPresent,
+      baseUrl: config.baseUrl,
+      spentTodayUsd: spentToday(deps.db, provider),
+      callsToday: callsToday(provider),
+      dailyBudgetUsd: config.dailyBudgetUsd,
+      dailyCallLimit: config.dailyCallLimit,
+    };
+  }
+
+  function taskStatus(task: AiTask): TaskStatus {
+    const { provider, model } = route(task);
+    if (provider === 'none') return { task, provider, model: null, configured: false, reason: 'This task runs offline.' };
+    const p = providerStatus(provider);
+    const reason = !p.configured ? p.reason : !model ? 'Choose a model for this task.' : null;
+    return { task, provider, model, configured: reason === null, reason };
   }
 
   return {
-    status,
+    taskStatus,
+    providerStatus,
     async generateObject<T>(req: GenerateObjectRequest<T>): Promise<T> {
-      const s = readSettings();
-      const st = status();
-      if (!st.configured || s.provider === 'none') throw new AiNotConfiguredError(st.reason ?? 'AI is not configured.');
-      // A pinned task (CV reading) runs on its own model when that key is set; everything else uses the chosen provider.
-      const pin = req.pin && googleApiKey(readEnv()) ? req.pin : null;
-      const provider = pin?.provider ?? s.provider;
-      const modelId = pin?.model ?? st.models[req.role]!;
+      const st = taskStatus(req.task);
+      if (!st.configured) throw new AiNotConfiguredError(st.reason ?? 'AI is not configured.');
+      const provider = st.provider as Exclude<AiProvider, 'none'>;
+      const modelId = st.model!;
+      const config = providerConfig(provider);
       // Check the budget and reserve this call's likely cost in one transaction: calls running side by side see
       // each other's reservations, so together they can't overspend. The row is corrected when the call ends.
       const reserved = estimateCostUsd(provider, modelId, Math.ceil(((req.system?.length ?? 0) + req.prompt.length) / 4), RESERVED_OUTPUT_TOKENS);
       const subscription = SUBSCRIPTION_PROVIDERS.includes(provider);
-      const callLimit = subscription ? s.dailyCallLimit : null;
+      const callLimit = subscription ? config.dailyCallLimit : null;
       let limitReached = false;
       const usageId = deps.db.transaction(
         (tx) => {
@@ -207,8 +235,8 @@ export function createAi(deps: {
             limitReached = true;
             return null;
           }
-          if (st.dailyBudgetUsd !== null && spentToday(tx) >= st.dailyBudgetUsd) return null;
-          return tx.insert(aiUsage).values({ task: req.task, role: req.role, provider, model: modelId, inputTokens: 0, outputTokens: 0, costUsd: reserved, ok: false, createdAt: now() }).returning({ id: aiUsage.id }).get().id;
+          if (config.dailyBudgetUsd !== null && spentToday(tx) >= config.dailyBudgetUsd) return null;
+          return tx.insert(aiUsage).values({ task: req.task, role: '', provider, model: modelId, inputTokens: 0, outputTokens: 0, costUsd: reserved, ok: false, createdAt: now() }).returning({ id: aiUsage.id }).get().id;
         },
         { behavior: 'immediate' },
       );
@@ -217,8 +245,8 @@ export function createAi(deps: {
         throw new AiBudgetExceededError(`Daily limit of ${callLimit} AI calls through your plan reached. AI work resumes tomorrow.`);
       }
       if (usageId === null) {
-        deps.onBudgetExceeded?.(st.dailyBudgetUsd!);
-        throw new AiBudgetExceededError(`Daily AI budget of $${st.dailyBudgetUsd!.toFixed(2)} reached. AI work resumes tomorrow.`);
+        deps.onBudgetExceeded?.(config.dailyBudgetUsd!);
+        throw new AiBudgetExceededError(`Daily AI budget of $${config.dailyBudgetUsd!.toFixed(2)} reached. AI work resumes tomorrow.`);
       }
       const record = (ok: boolean, input = 0, output = 0) =>
         deps.db
@@ -245,7 +273,7 @@ export function createAi(deps: {
           // output limit): developers.openai.com/siwc/token-sharing-open-source/preview-limitations.
           let streamError: unknown = null;
           const result = streamText({
-            model: factory('chatgpt', modelId, s, { CHATGPT_ACCESS_TOKEN: await chatgptToken() }),
+            model: factory('chatgpt', modelId, config, { CHATGPT_ACCESS_TOKEN: await chatgptToken() }),
             output: Output.object({ schema: req.schema }),
             ...input,
             providerOptions: { openai: { store: false, instructions: req.system, systemMessageMode: 'remove' } },
@@ -270,7 +298,7 @@ export function createAi(deps: {
           return output;
         }
         const result = await generateText({
-          model: factory(provider, modelId, s, readEnv()),
+          model: factory(provider, modelId, config, readEnv()),
           output: Output.object({ schema: req.schema }),
           system: req.system,
           ...input,
@@ -282,7 +310,9 @@ export function createAi(deps: {
         record(false);
         // Log only the message: provider errors carry the request body (CV text) and headers.
         deps.log.warn({ error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), task: req.task, provider, model: modelId }, 'AI call failed');
-        throw err;
+        if (err instanceof AiBudgetExceededError || err instanceof AiNotConfiguredError) throw err;
+        // Name the route (not the prompt or key) so a retired or misspelt model is easy to spot.
+        throw new Error(`${req.task} · ${provider} · ${modelId}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
       }
     },
   };

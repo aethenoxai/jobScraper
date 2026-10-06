@@ -3,7 +3,6 @@ import { z } from 'zod';
 export const AI_SETTINGS_KEY = 'ai';
 export const AI_PROVIDERS = ['none', 'openai', 'anthropic', 'google', 'ollama', 'openai-compatible', 'claude-code', 'chatgpt'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
-export type ModelRole = 'fast' | 'quality';
 
 // Old schema, kept for migrations only
 const OldAiSettingsSchema = z.object({
@@ -68,13 +67,6 @@ export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string 
   'claude-code': { fast: 'haiku', quality: 'sonnet' },
   chatgpt: { fast: 'gpt-5-mini', quality: 'gpt-5' },
 };
-
-/**
- * Reading a CV always runs on Gemini 3 Flash, whatever provider is chosen: best value for reading documents
- * ($0.50/$3 per 1M) and it takes the PDF itself. Used only when a Gemini key is set; otherwise the chosen
- * provider reads the CV text. Google's own tools name the key GEMINI_API_KEY, so both names are accepted.
- */
-export const CV_EXTRACT_MODEL = { provider: 'google', model: 'gemini-3-flash-preview' } as const;
 
 /** Models offered in setup and settings (the user can also type another one). Empty: type the model's name. */
 export const MODEL_CHOICES: Record<Exclude<AiProvider, 'none'>, string[]> = {
