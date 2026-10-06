@@ -197,6 +197,63 @@ describe('ai', () => {
     expect(ai.providerStatus('google').callsToday).toBe(0);
   });
 
+  it('stops only the tasks routed to the provider that ran out', async () => {
+    const s = routed(
+      { 'cv-extract': { provider: 'google', model: 'gemini-3-flash-preview' }, 'jd-analysis': OPENAI_MINI },
+      { OPENAI_API_KEY: 'sk-test-123456', GEMINI_API_KEY: 'k' },
+      { google: { baseUrl: null, dailyBudgetUsd: 0, dailyCallLimit: null }, openai: { baseUrl: null, dailyBudgetUsd: 5, dailyCallLimit: null } },
+    );
+    await expect(ask(s.ai, 'cv-extract')).rejects.toBeInstanceOf(AiBudgetExceededError);
+    await expect(ask(s.ai, 'jd-analysis')).resolves.toEqual({ name: 'Asha' });
+  });
+
+  it('compares a provider’s own spend with its own budget, and the message agrees with the settings page', async () => {
+    const s = routed(
+      { 'cv-extract': { provider: 'google', model: 'gemini-3-flash-preview' }, 'jd-analysis': OPENAI_MINI },
+      { OPENAI_API_KEY: 'sk-test-123456', GEMINI_API_KEY: 'k' },
+      { openai: { baseUrl: null, dailyBudgetUsd: 50, dailyCallLimit: null } },
+    );
+    t.db.insert(aiUsage).values({ task: 'jd-analysis', role: '', provider: 'openai', model: 'gpt-5-mini', inputTokens: 1, outputTokens: 1, costUsd: 3, ok: true, createdAt: new Date() }).run();
+    await expect(ask(s.ai, 'cv-extract')).resolves.toEqual({ name: 'Asha' });
+    expect(s.ai.providerStatus('google').spentTodayUsd).toBeGreaterThan(0);
+    // Now google really has spent more than its default $2: the message names google and its own numbers.
+    t.db.insert(aiUsage).values({ task: 'cv-extract', role: '', provider: 'google', model: 'm', inputTokens: 1, outputTokens: 1, costUsd: 2.5, ok: true, createdAt: new Date() }).run();
+    await expect(ask(s.ai, 'cv-extract')).rejects.toThrow(/google.*\$2\.00/);
+    await expect(ask(s.ai, 'jd-analysis')).resolves.toEqual({ name: 'Asha' });
+  });
+
+  it('counts a plan provider in calls and a keyed provider in dollars, separately', async () => {
+    const settings = createSettings(t.db);
+    settings.set(AI_SETTINGS_KEY, {
+      providers: { 'claude-code': { baseUrl: null, dailyBudgetUsd: null, dailyCallLimit: 1 }, google: { baseUrl: null, dailyBudgetUsd: 5, dailyCallLimit: null } },
+      tasks: { ...DEFAULT_AI_SETTINGS.tasks, 'jd-analysis': { provider: 'claude-code', model: 'haiku' }, 'cv-extract': { provider: 'google', model: 'gemini-3-flash-preview' } },
+    });
+    const ai = createAi({
+      db: t.db, settings, log, env: { GEMINI_API_KEY: 'k' },
+      claudeCodeBin: () => '/usr/local/bin/claude',
+      runClaudeCode: async (req) => ({ object: req.schema.parse({ name: 'Asha' }), inputTokens: 1, outputTokens: 1 }),
+      modelFactory: () => mockModel('{"name":"Asha"}'),
+    });
+    await ask(ai, 'jd-analysis');
+    await expect(ask(ai, 'jd-analysis')).rejects.toThrow(/claude-code.*1 AI calls/);
+    await expect(ask(ai, 'cv-extract')).resolves.toEqual({ name: 'Asha' });
+  });
+
+  it('one plan provider’s call limit does not stop the other plan provider', async () => {
+    const settings = createSettings(t.db);
+    settings.set(AI_SETTINGS_KEY, {
+      providers: { 'claude-code': { baseUrl: null, dailyBudgetUsd: null, dailyCallLimit: 2 }, chatgpt: { baseUrl: null, dailyBudgetUsd: null, dailyCallLimit: 2 } },
+      tasks: { ...DEFAULT_AI_SETTINGS.tasks, 'jd-analysis': { provider: 'chatgpt', model: 'gpt-5-mini' } },
+    });
+    settings.set('ai.chatgpt', { clientId: 'oaiapp_1', email: 'a@example.com', subject: 's', idToken: 'x.y.z', accessToken: 'at-1', refreshToken: 'rt-1', expiresAt: Date.now() + 3600_000, scope: 'chatgpt.tokens.use.direct', connectedAt: 1, needsReconnect: false });
+    for (let i = 0; i < 2; i++) t.db.insert(aiUsage).values({ task: 'jd-analysis', role: '', provider: 'claude-code', model: 'haiku', inputTokens: 1, outputTokens: 1, costUsd: 0, ok: true, createdAt: new Date() }).run();
+    const ai = createAi({ db: t.db, settings, log, env: {}, chatgptAccessToken: async () => 'at', modelFactory: () => mockModel('{"name":"Asha"}') });
+    expect(ai.providerStatus('chatgpt').callsToday).toBe(0);
+    // Whatever the model does next, it must not be the call limit that stops ChatGPT.
+    await ask(ai).catch((e) => expect(e).not.toBeInstanceOf(AiBudgetExceededError));
+    expect(t.db.select().from(aiUsage).all().filter((r) => r.provider === 'chatgpt')).toHaveLength(1);
+  });
+
   it('calls running side by side cannot together overspend the budget (M12 deferred minor)', async () => {
     const settings = createSettings(t.db);
     settings.set(AI_SETTINGS_KEY, { providers: { openai: { baseUrl: null, dailyBudgetUsd: 0.001, dailyCallLimit: 300 } }, tasks: allOn(OPENAI_MINI) });

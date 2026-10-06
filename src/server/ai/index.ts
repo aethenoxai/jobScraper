@@ -3,7 +3,7 @@ import { createGoogle } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText, Output, streamText, type LanguageModel } from 'ai';
-import { and, count, eq, gte, inArray, sum } from 'drizzle-orm';
+import { and, count, eq, gte, sum } from 'drizzle-orm';
 import { createOllama } from 'ollama-ai-provider-v2';
 import { z } from 'zod';
 import type { Db } from '../db';
@@ -161,23 +161,12 @@ export function createAi(deps: {
     start.setHours(0, 0, 0, 0);
     return start;
   };
-  function spentToday(db: Pick<Db, 'select'> = deps.db, provider?: AiProvider): number {
-    const since = gte(aiUsage.createdAt, startOfToday());
-    const row = db.select({ total: sum(aiUsage.costUsd) }).from(aiUsage).where(provider ? and(since, eq(aiUsage.provider, provider)) : since).get();
+  function spentToday(provider: AiProvider, db: Pick<Db, 'select'> = deps.db): number {
+    const row = db.select({ total: sum(aiUsage.costUsd) }).from(aiUsage).where(and(gte(aiUsage.createdAt, startOfToday()), eq(aiUsage.provider, provider))).get();
     return Number(row?.total ?? 0);
   }
-  /** Calls made today through subscription providers (the daily call limit counts these). */
-  function subscriptionCallsToday(db: Pick<Db, 'select'>): number {
-    const row = db
-      .select({ n: count() })
-      .from(aiUsage)
-      .where(and(gte(aiUsage.createdAt, startOfToday()), inArray(aiUsage.provider, [...SUBSCRIPTION_PROVIDERS])))
-      .get();
-    return row?.n ?? 0;
-  }
-
-  function callsToday(provider: AiProvider): number {
-    const row = deps.db.select({ n: count() }).from(aiUsage).where(and(gte(aiUsage.createdAt, startOfToday()), eq(aiUsage.provider, provider))).get();
+  function callsToday(provider: AiProvider, db: Pick<Db, 'select'> = deps.db): number {
+    const row = db.select({ n: count() }).from(aiUsage).where(and(gte(aiUsage.createdAt, startOfToday()), eq(aiUsage.provider, provider))).get();
     return row?.n ?? 0;
   }
 
@@ -200,7 +189,7 @@ export function createAi(deps: {
       keyEnvVar,
       keyPresent,
       baseUrl: config.baseUrl,
-      spentTodayUsd: spentToday(deps.db, provider),
+      spentTodayUsd: spentToday(provider),
       callsToday: callsToday(provider),
       dailyBudgetUsd: config.dailyBudgetUsd,
       dailyCallLimit: config.dailyCallLimit,
@@ -232,22 +221,22 @@ export function createAi(deps: {
       let limitReached = false;
       const usageId = deps.db.transaction(
         (tx) => {
-          if (callLimit !== null && subscriptionCallsToday(tx) >= callLimit) {
+          if (callLimit !== null && callsToday(provider, tx) >= callLimit) {
             limitReached = true;
             return null;
           }
-          if (config.dailyBudgetUsd !== null && spentToday(tx) >= config.dailyBudgetUsd) return null;
+          if (config.dailyBudgetUsd !== null && spentToday(provider, tx) >= config.dailyBudgetUsd) return null;
           return tx.insert(aiUsage).values({ task: req.task, role: '', provider, model: modelId, inputTokens: 0, outputTokens: 0, costUsd: reserved, ok: false, createdAt: now() }).returning({ id: aiUsage.id }).get().id;
         },
         { behavior: 'immediate' },
       );
       if (usageId === null && limitReached) {
         deps.onCallLimitReached?.(callLimit!);
-        throw new AiBudgetExceededError(`Daily limit of ${callLimit} AI calls through your plan reached. AI work resumes tomorrow.`);
+        throw new AiBudgetExceededError(`Daily limit of ${callLimit} AI calls through your ${provider} plan reached. AI work resumes tomorrow.`);
       }
       if (usageId === null) {
         deps.onBudgetExceeded?.(config.dailyBudgetUsd!);
-        throw new AiBudgetExceededError(`Daily AI budget of $${config.dailyBudgetUsd!.toFixed(2)} reached. AI work resumes tomorrow.`);
+        throw new AiBudgetExceededError(`Daily ${provider} budget of $${config.dailyBudgetUsd!.toFixed(2)} reached. AI work resumes tomorrow.`);
       }
       const record = (ok: boolean, input = 0, output = 0) =>
         deps.db
