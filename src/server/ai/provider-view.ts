@@ -96,3 +96,8 @@ export function applyProviderForm(current: AiSettings, form: Record<string, stri
   }
   return { ...current, providers };
 }
+
+/** The address a connection test may use. Only local and compatible servers take one: for any other provider a client-supplied address would receive the real key from .env. */
+export function testBaseUrl(provider: AiProvider, baseUrl: string): string | undefined {
+  return (provider === 'ollama' || provider === 'openai-compatible') && baseUrl.trim() ? baseUrl.trim() : undefined;
+}

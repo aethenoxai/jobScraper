@@ -60,21 +60,14 @@ test('a second profile can be created and deleted', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Software Engineer' })).toBeVisible();
 });
 
-test('AI settings show offline mode without leaking keys', async ({ page }) => {
+test('AI settings explain a missing key without leaking keys', async ({ page }) => {
   await page.goto('/settings/ai');
-  await expect(page.getByTestId('ai-state')).toContainText('Offline (no AI)');
-  await page.getByLabel('Provider').selectOption('openai');
-  // "Test connection" checks what is selected, before saving.
-  await page.getByRole('button', { name: 'Test connection' }).click();
-  await expect(page.getByRole('status').filter({ hasText: /Add OPENAI_API_KEY to your .env/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('AI settings saved.')).toBeVisible();
+  const openai = page.getByTestId('provider-openai');
+  await expect(openai).toContainText('OPENAI_API_KEY');
+  await expect(page.locator('input[type=password]')).toHaveCount(0);
+  // "Test connection" says where the key goes (.env), never asks to paste it.
+  await openai.getByRole('button', { name: 'Test connection' }).click();
+  await expect(openai.getByRole('status')).toContainText(/Add OPENAI_API_KEY to your .env/);
   await page.reload();
-  await expect(page.getByText(/Add OPENAI_API_KEY to your .env/).first()).toBeVisible();
-  await expect(page.getByTestId('ai-state')).toContainText('Not configured');
-  await page.getByLabel('Provider').selectOption('none');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('AI settings saved.')).toBeVisible();
-  await page.reload();
-  await expect(page.getByTestId('ai-state')).toContainText('Offline (no AI)');
+  await expect(page.getByTestId('provider-openai')).toContainText('No key');
 });

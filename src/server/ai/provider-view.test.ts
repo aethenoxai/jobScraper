@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyProviderForm, modelNote, providerRows, testModelFor, type ProviderStatusLike } from './provider-view';
+import { applyProviderForm, modelNote, providerRows, testBaseUrl, testModelFor, type ProviderStatusLike } from './provider-view';
 import { DEFAULT_AI_SETTINGS, type AiSettings } from './settings';
 
 const status = (over: Partial<ProviderStatusLike>): ProviderStatusLike => ({ provider: 'google', configured: true, reason: null, keyEnvVar: 'GOOGLE_GENERATIVE_AI_API_KEY', keyPresent: true, baseUrl: null, spentTodayUsd: 0, callsToday: 0, dailyBudgetUsd: 2, dailyCallLimit: 300, ...over });
@@ -59,5 +59,15 @@ describe('applyProviderForm', () => {
     expect(() => applyProviderForm(DEFAULT_AI_SETTINGS, { 'openai.limit': '-1' })).toThrow(/dollar amount/);
     expect(() => applyProviderForm(DEFAULT_AI_SETTINGS, { 'chatgpt.limit': '1.5' })).toThrow(/whole number/);
     expect(() => applyProviderForm(DEFAULT_AI_SETTINGS, { 'ollama.baseUrl': 'ftp://x' })).toThrow(/http\(s\)/);
+  });
+});
+
+describe('testBaseUrl', () => {
+  it('drops an address for providers that send a key, keeps it for local and compatible servers', () => {
+    expect(testBaseUrl('openai', 'https://evil.example')).toBeUndefined();
+    expect(testBaseUrl('anthropic', 'https://evil.example')).toBeUndefined();
+    expect(testBaseUrl('google', 'https://evil.example')).toBeUndefined();
+    expect(testBaseUrl('ollama', ' http://127.0.0.1:11434/api ')).toBe('http://127.0.0.1:11434/api');
+    expect(testBaseUrl('openai-compatible', '')).toBeUndefined();
   });
 });

@@ -6,7 +6,7 @@ import { AI_PROVIDERS, AI_SETTINGS_KEY, migrateAiSettings, type AiProvider } fro
 import { disconnectChatGpt } from '@/server/ai/chatgpt-auth';
 import { claudeCodeSignOut } from '@/server/ai/claude-code';
 import { testProvider } from '@/server/ai/connect';
-import { applyProviderForm, testModelFor } from '@/server/ai/provider-view';
+import { applyProviderForm, testBaseUrl, testModelFor } from '@/server/ai/provider-view';
 import { liveEnv, shellDefines, writeEnvValue } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 
@@ -32,10 +32,13 @@ export async function saveProviders(_prev: ProviderActionResult | null, form: Fo
 /** One tiny call to the provider with the key already in .env. Routing is never changed. */
 export async function testProviderConnection(provider: string, baseUrl: string): Promise<ProviderActionResult> {
   if (!(AI_PROVIDERS as readonly string[]).includes(provider) || provider === 'none') return { ok: false, message: 'Unknown provider.' };
-  const { db, settings, log } = getAppContext();
+  const { db, settings, log, ai } = getAppContext();
+  // Keys live only in .env: say so instead of asking for one to be pasted.
+  const status = ai.providerStatus(provider as AiProvider);
+  if (status.keyEnvVar && provider !== 'openai-compatible' && !status.keyPresent) return { ok: false, message: status.reason ?? `Add ${status.keyEnvVar} to your .env file.` };
   return testProvider(
     { db, settings, log, env: () => liveEnv(), writeKey: (k, v) => void writeEnvValue(k, v), shellDefines: (k) => shellDefines(k), inDocker: process.env.JOB_SCRAPER_IN_DOCKER === 'true' },
-    { provider, model: testModelFor(provider as Exclude<AiProvider, 'none'>, readSettings()), baseUrl: baseUrl || undefined },
+    { provider, model: testModelFor(provider as Exclude<AiProvider, 'none'>, readSettings()), baseUrl: testBaseUrl(provider as AiProvider, baseUrl) },
   );
 }
 

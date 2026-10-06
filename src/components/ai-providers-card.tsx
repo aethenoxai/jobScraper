@@ -77,9 +77,14 @@ export function AiProvidersCard({ rows, inDocker, chatgpt, claudeCode }: { rows:
                     const address = (e.currentTarget.form?.elements.namedItem(`${p}.baseUrl`) as HTMLInputElement | null)?.value ?? '';
                     setBusy(p);
                     startTest(async () => {
-                      const out = await testProviderConnection(p, address);
-                      setTests((t) => ({ ...t, [p]: out }));
-                      setBusy(null);
+                      try {
+                        const out = await testProviderConnection(p, address);
+                        setTests((t) => ({ ...t, [p]: out }));
+                      } catch {
+                        setTests((t) => ({ ...t, [p]: { ok: false, message: 'The test could not run. Check the logs.' } }));
+                      } finally {
+                        setBusy(null);
+                      }
                     });
                   }}
                 >

@@ -19,6 +19,7 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
   const { error } = await searchParams;
   const current = settings.get(AI_SETTINGS_KEY, AiSettingsSchema, DEFAULT_AI_SETTINGS);
   const inDocker = process.env.JOB_SCRAPER_IN_DOCKER === 'true';
+  const claudeCode = inDocker ? null : await claudeCodeStatus();
   const env = liveEnv();
   const rows: ProviderCardRow[] = await Promise.all(
     providerRows(AI_PROVIDERS.map((p) => ai.providerStatus(p)), current).map(async (r) => ({
@@ -32,10 +33,10 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
       <PageHeader title="AI provider" subtitle="Job Scraper uses your own AI account: an API key (kept only in your .env file, never shown or stored in the database), your ChatGPT plan, or your own Claude Code." />
       {typeof error === 'string' && <p role="alert" className="rounded border border-red-400 px-3 py-2 text-sm">{error.slice(0, 300)}</p>}
       <Card title="Providers">
-        <AiProvidersCard rows={rows} inDocker={inDocker} chatgpt={chatGptAccount(settings)} claudeCode={inDocker ? null : await claudeCodeStatus()} />
+        <AiProvidersCard rows={rows} inDocker={inDocker} chatgpt={chatGptAccount(settings)} claudeCode={claudeCode} />
       </Card>
       <Card title="Configuration">
-        <AiSettingsForm initial={current} chatgpt={chatGptAccount(settings)} claudeCode={inDocker ? null : await claudeCodeStatus()} />
+        <AiSettingsForm initial={current} chatgpt={chatGptAccount(settings)} claudeCode={claudeCode} />
       </Card>
       <Card title="What leaves your machine">
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
