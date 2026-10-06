@@ -3,7 +3,7 @@ import type { Ai } from '../ai';
 import { fakeRoutes, routedAi } from '../ai/fake';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
-import { matches, sources } from '../db/schema';
+import { jobAnalyses, matches, sources } from '../db/schema';
 import { createIngestor } from '../jobs/ingest';
 import { createLogger } from '../logging';
 import { DEFAULT_PREFERENCES, emptyProfile } from '../profile/model';
@@ -137,6 +137,26 @@ describe('matching tasks', () => {
     }
     expect(t.db.select().from(matches).all().some((m) => m.method === 'heuristic' && m.evaluatedAt.getTime() === at.getTime())).toBe(true);
     // Same tick, nothing left to do: the next reconcile queues nothing.
+    expect(reconcileMatches({ matching: jdOnly, profiles, queue })).toBe(0);
+  });
+
+  it('a heuristic match with no stored analysis row is re-scored once, then not re-queued (R20)', async () => {
+    const { queue, profiles, matching, ids } = setup();
+    await createMatchEvaluateHandler({ matching, profiles, onSurfaced: () => {} })({ jobIds: ids }, ctx);
+    while (queue.claim('w', [MATCH_TASK])) {
+      /* drain */
+    }
+    t.db.delete(jobAnalyses).run();
+    const at = new Date(Date.now() + 7 * 3_600_000);
+    const ai = routedAi(['jd-analysis'], () => {
+      throw new Error('unused');
+    });
+    const jdOnly = createMatchService({ db: t.db, ai, queue, profiles, log, now: () => at });
+    expect(reconcileMatches({ matching: jdOnly, profiles, queue })).toBeGreaterThan(0);
+    for (let task = queue.claim('w', [MATCH_TASK]); task; task = queue.claim('w', [MATCH_TASK])) {
+      await createMatchEvaluateHandler({ matching: jdOnly, profiles, onSurfaced: () => {} })(task.payload as never, ctx);
+    }
+    expect(t.db.select().from(matches).all().some((m) => m.method === 'heuristic' && m.evaluatedAt.getTime() === at.getTime())).toBe(true);
     expect(reconcileMatches({ matching: jdOnly, profiles, queue })).toBe(0);
   });
 

@@ -195,7 +195,7 @@ export function createMatchService(deps: { db: Db; ai: Ai | null; queue: Queue; 
       const upgrade =
         existing?.method === 'heuristic' &&
         (!!deps.ai?.taskStatus('match-evaluate').configured ||
-          (!!deps.ai?.taskStatus('jd-analysis').configured && db.select({ method: jobAnalyses.method }).from(jobAnalyses).where(eq(jobAnalyses.descriptionHash, jobText(job).descriptionHash)).get()?.method === 'heuristic'));
+          (!!deps.ai?.taskStatus('jd-analysis').configured && (db.select({ method: jobAnalyses.method }).from(jobAnalyses).where(eq(jobAnalyses.descriptionHash, jobText(job).descriptionHash)).get()?.method ?? 'heuristic') === 'heuristic'));
       if (!opts.force && !upgrade && existing && existing.jobVersion === job.lastChangedAt.getTime() && existing.profileVersion === profileVersion(profile)) {
         if (existing.sliderValue === profile.sliderValue || existing.method === 'gate') {
           return { matchId: existing.id, score: existing.score, decision: existing.decision, newlySurfaced: false, skipped: true };
