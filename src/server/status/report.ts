@@ -2,7 +2,7 @@
  * What the System page shows (PRD §52): how discovery, applications, notifications, email, the queue and AI have
  * been doing over the last days, with the latest errors, so a failure is visible without reading logs.
  */
-import { and, count, desc, eq, gte, inArray, ne, not, or, sql, sum } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lt, ne, not, or, sql, sum } from 'drizzle-orm';
 import type { Db } from '../db';
 import { aiUsage, applications, notifications, queueTasks, sentEmails, sourceRuns, sources } from '../db/schema';
 
@@ -12,6 +12,8 @@ const DAY_MS = 86_400_000;
  * work cancelled on purpose (Stop, a deleted application) didn't go wrong.
  */
 const NOT_A_FAILURE = or(eq(queueTasks.type, 'discovery.url'), sql`coalesce(${queueTasks.lastError}, '') = 'Cancelled'`);
+/** A call's ledger row starts as not-ok and flips on success; one still not-ok after the longest timeout failed or was interrupted. */
+const CALL_GRACE_MS = 3 * 60_000;
 const FAILED_STATUSES = ['PREPARATION_FAILED', 'APPLICATION_SKIPPED', 'APPLICATION_FAILED'] as const;
 
 export interface SystemReport {
@@ -99,9 +101,10 @@ export function systemReport(db: Db, opts: { now?: Date; days?: number } = {}): 
     .limit(10)
     .all();
 
+  const settled = new Date(now.getTime() - CALL_GRACE_MS);
   const spend = (from: Date) => n(db.select({ usd: sum(aiUsage.costUsd) }).from(aiUsage).where(gte(aiUsage.createdAt, from)).get()?.usd);
   const byTask = db
-    .select({ task: aiUsage.task, calls: count(), failed: sum(sql`${aiUsage.ok} = 0`), usd: sum(aiUsage.costUsd) })
+    .select({ task: aiUsage.task, calls: count(), failed: sum(sql`${aiUsage.ok} = 0 and ${aiUsage.createdAt} < ${settled.getTime()}`), usd: sum(aiUsage.costUsd) })
     .from(aiUsage)
     .where(gte(aiUsage.createdAt, since))
     .groupBy(aiUsage.task)
@@ -117,6 +120,6 @@ export function systemReport(db: Db, opts: { now?: Date; days?: number } = {}): 
     notifications: notif,
     emails: { sent: emailOf('sent'), failed: emailOf('failed'), uncertain: emailOf('uncertain'), sending: emailOf('sending'), lastError: emailError },
     queue: { counts, failed: failedTasks },
-    ai: { todayUsd: spend(midnight), weekUsd: spend(since), failedCalls: n(db.select({ n: count() }).from(aiUsage).where(and(eq(aiUsage.ok, false), gte(aiUsage.createdAt, since))).get()?.n), byTask },
+    ai: { todayUsd: spend(midnight), weekUsd: spend(since), failedCalls: n(db.select({ n: count() }).from(aiUsage).where(and(eq(aiUsage.ok, false), gte(aiUsage.createdAt, since), lt(aiUsage.createdAt, settled))).get()?.n), byTask },
   };
 }

@@ -33,7 +33,7 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
   const models = Object.fromEntries(AI_PROVIDERS.map((p) => [p, lists[p].models])) as Record<AiProvider, string[]>;
   const taskStatuses = AI_TASKS.map((t) => ai.taskStatus(t));
   const notes = Object.fromEntries(taskStatuses.filter((t) => t.provider !== 'none' && !t.configured && t.reason).map((t) => [t.task, t.reason])) as Partial<Record<AiTask, string>>;
-  const privacy = privacyLines(taskStatuses, Object.fromEntries(statuses.map((s) => [s.provider, s.baseUrl])));
+  const privacy = privacyLines(taskStatuses, { ...Object.fromEntries(statuses.map((s) => [s.provider, s.baseUrl])), ollama: statuses.find((s) => s.provider === 'ollama')?.baseUrl ?? env.OLLAMA_BASE_URL ?? null });
   const stateLine = aiStateLine(taskStatuses, new Set(statuses.filter(limitReached).map((s) => s.provider)));
   return (
     <div className="max-w-3xl space-y-6">
@@ -52,7 +52,7 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
         </p>
         <ul className="space-y-1 text-sm" data-testid="ai-privacy">
           {privacy.map((l) => (
-            <li key={l.task}><span className="font-medium">{l.title}:</span> {l.local ? 'nothing leaves your computer' : `sends ${l.data} to ${l.destination}`}.</li>
+            <li key={l.task}><span className="font-medium">{l.title}:</span> {l.notReady ? 'not set up yet, so it runs offline on this computer for now and sends nothing' : l.local ? 'nothing leaves your computer' : `sends ${l.data} to ${l.destination}`}.</li>
           ))}
         </ul>
         <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">With None, Job Scraper works offline with simpler, rule-based extraction and matching. Each provider’s own privacy terms apply to what it receives.</p>

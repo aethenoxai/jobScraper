@@ -161,7 +161,7 @@ export default function SystemPage() {
 
       <Card title="AI usage">
         <p className="mb-3 text-sm" data-testid="system-ai">
-          Today {usd(r.ai.todayUsd)} · this week {usd(r.ai.weekUsd)}{r.ai.failedCalls ? ` · ${plural(r.ai.failedCalls, 'failed call')}` : ''}. Change providers and limits: <Link href="/settings/ai" className="underline">AI provider</Link>.
+          Today {usd(r.ai.todayUsd)} · this week {usd(r.ai.weekUsd)}{r.ai.failedCalls ? ` · ${plural(r.ai.failedCalls, 'failed or interrupted call')}` : ''}. Change providers and limits: <Link href="/settings/ai" className="underline">AI provider</Link>.
         </p>
         <table className="text-sm" data-testid="system-ai-routes">
           <thead><tr><th className={th}>Task</th><th className={th}>Runs on</th></tr></thead>
@@ -204,7 +204,7 @@ export default function SystemPage() {
           <>
             <h3 className="mb-1 mt-4 text-sm font-medium text-neutral-500">Last {r.days} days</h3>
             <table className="text-sm" data-testid="system-ai-usage">
-              <thead><tr><th className={th}>What</th><th className={th}>Calls</th><th className={th}>Failed</th><th className={th}>Cost</th></tr></thead>
+              <thead><tr><th className={th}>What</th><th className={th}>Calls</th><th className={th}>Failed or interrupted</th><th className={th}>Cost</th></tr></thead>
               <tbody>
                 {r.ai.byTask.map((x) => (
                   <tr key={x.task} className="border-t border-neutral-200 dark:border-neutral-800"><td className={td}>{usageLabel(x.task)}</td><td className={td}>{x.calls}</td><td className={td}>{x.failed}</td><td className={td}>{usd(x.usd)}</td></tr>

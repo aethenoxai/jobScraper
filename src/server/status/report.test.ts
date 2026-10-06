@@ -104,6 +104,14 @@ describe('systemReport (PRD §52)', () => {
     ]);
   });
 
+  it('does not count a call still in flight as failed, but one left behind after the timeout', () => {
+    const row = (ageMin: number) => ({ task: 'cv-extract', role: '', provider: 'openai' as const, model: 'm', inputTokens: 0, outputTokens: 0, costUsd: 0.01, ok: false, createdAt: new Date(now.getTime() - ageMin * 60_000) });
+    t.db.insert(aiUsage).values([row(1), row(10)]).run();
+    const r = systemReport(t.db, { now });
+    expect(r.ai.failedCalls).toBe(1);
+    expect(r.ai.byTask).toEqual([expect.objectContaining({ calls: 2, failed: 1 })]);
+  });
+
   it('leaves out what is not a failure of background work: the user’s own bad links, cancelled work and the hidden “Added by you” source', () => {
     seed();
     t.db.insert(queueTasks).values([

@@ -22,6 +22,7 @@ import {
   type AiProviderConfig,
   type AiRoute,
   type AiTask,
+  READS_FILES,
 } from './settings';
 
 export * from './settings';
@@ -78,9 +79,6 @@ export interface Ai {
 export type ModelFactory = (provider: Exclude<AiProvider, 'none'>, modelId: string, config: AiProviderConfig, env: Record<string, string | undefined>) => LanguageModel;
 
 /** Rough list prices in USD per 1M tokens (input, output). Estimates only, used for the daily budget. */
-/** Providers whose API takes documents (PDF) next to the prompt. */
-const READS_FILES = new Set<AiProvider>(['openai', 'anthropic', 'google', 'chatgpt']);
-
 const PRICES: Array<[RegExp, number, number]> = [
   [/haiku/i, 1, 5],
   [/sonnet/i, 3, 15],

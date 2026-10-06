@@ -8,6 +8,7 @@ import { ProfileEditor } from '@/components/profile/profile-editor';
 import { RenameForm } from '@/components/profile/rename-form';
 import { Badge, btn, btnDanger, btnPrimary, Card, Notice, PageHeader } from '@/components/ui';
 import { formatWhen, requestTime } from '@/lib/format';
+import { PROVIDER_LABELS } from '@/server/ai';
 import { getAppContext } from '@/server/context';
 import { missingFields } from '@/server/profile/model';
 import { applyCvImport, deleteProfile, dismissCvImport, removeCv, setDefaultProfile } from '../actions';
@@ -64,10 +65,10 @@ export default async function ProfilePage({ params }: PageProps<'/profiles/[id]'
       <Card title="Master CV">
         <p className="mb-3 text-sm text-neutral-500" data-testid="cv-reader">
           {aiStatus.configured
-            ? `CVs are read by ${aiStatus.provider} · ${aiStatus.model}. Check the fields it fills before you rely on them.`
+            ? `CVs are read by ${PROVIDER_LABELS[aiStatus.provider]} · ${aiStatus.model}. Check the fields it fills before you rely on them.`
             : aiStatus.provider === 'none'
               ? 'CV reading is set to None, so CVs are read on this computer with the offline extractor. It finds the basics, but review every field.'
-              : `CV reading is set to ${aiStatus.provider}, but it can't run yet (${(aiStatus.reason ?? 'not set up').replace(/\.$/, '')}), so CVs are read with the offline extractor for now. Review every field.`}{' '}
+              : `CV reading is set to ${PROVIDER_LABELS[aiStatus.provider]}, but it can't run yet (${(aiStatus.reason ?? 'not set up').replace(/\.$/, '')}), so CVs are read with the offline extractor for now. Review every field.`}{' '}
           <Link href="/settings/ai" className="underline">Change how CVs are read</Link>
         </p>
         <CvUploadForm profileId={id} busy={busy} />

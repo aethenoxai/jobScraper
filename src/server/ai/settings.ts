@@ -21,6 +21,9 @@ export type AiTask = (typeof AI_TASKS)[number];
 /** Which tasks used the "quality" model before per-task routing; the rest used "fast". */
 export const QUALITY_TASKS: readonly AiTask[] = ['cv-tailor', 'cover-letter'];
 
+/** Providers whose API takes documents (PDF) next to the prompt. */
+export const READS_FILES: ReadonlySet<AiProvider> = new Set<AiProvider>(['openai', 'anthropic', 'google', 'chatgpt']);
+
 export const TASK_LABELS: Record<AiTask, { title: string; hint: string }> = {
   'cv-extract': { title: 'Reading your CV', hint: 'Without AI: read on this computer with simpler rules, so check every field.' },
   'jd-analysis': { title: 'Understanding a job post', hint: 'Without AI: simpler rule-based requirements.' },

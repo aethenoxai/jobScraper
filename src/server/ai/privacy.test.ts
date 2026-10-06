@@ -21,6 +21,16 @@ describe('privacy', () => {
     const far = privacyLines([{ task: 'cv-extract', provider: 'ollama' }], { ollama: 'http://gpu.example.com:11434' })[0];
     expect(far).toMatchObject({ local: false, destination: 'the Ollama server at gpu.example.com:11434' });
   });
+  it('does not call a remote Ollama from OLLAMA_BASE_URL local', () => {
+    expect(privacyLines([{ task: 'cv-extract', provider: 'ollama' }], { ollama: 'http://gpu-box:11434/api' })[0]).toMatchObject({ local: false, destination: 'the Ollama server at gpu-box:11434' });
+    expect(privacyLines([{ task: 'cv-extract', provider: 'ollama' }], { ollama: null })[0]?.local).toBe(true);
+  });
+  it('says nothing is sent for a route that is not ready, and what a CV read really sends', () => {
+    const [cv] = privacyLines([{ task: 'cv-extract', provider: 'google', configured: false }]);
+    expect(cv).toMatchObject({ notReady: true, local: true });
+    expect(privacyLines([{ task: 'cv-extract', provider: 'google', configured: true }])[0]?.data).toContain('the file itself');
+    expect(privacyLines([{ task: 'cv-extract', provider: 'claude-code', configured: true }])[0]?.data).not.toContain('file itself');
+  });
   it('labels usage rows', () => {
     expect(usageLabel('connection-test')).toBe('Connection tests');
     expect(usageLabel('cv-extract')).toBe('Reading your CV');
