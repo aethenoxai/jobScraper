@@ -145,6 +145,12 @@ describe('ai', () => {
     expect(estimateCostUsd('google', 'gemini-2.5-pro', 1_000_000, 0)).toBeCloseTo(1.25);
   });
 
+  it('a provider never configured gets the schema defaults, and "none" has no key', () => {
+    const { ai } = routed({});
+    expect(ai.providerStatus('google')).toMatchObject({ dailyBudgetUsd: 2, dailyCallLimit: 300, baseUrl: null });
+    expect(ai.providerStatus('none')).toMatchObject({ keyPresent: false, configured: false });
+  });
+
   it('ollama needs no key', () => {
     expect(routed({ 'jd-analysis': { provider: 'ollama', model: 'llama3.1' } }, {}).ai.taskStatus('jd-analysis').configured).toBe(true);
   });

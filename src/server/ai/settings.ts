@@ -33,7 +33,7 @@ export const TASK_LABELS: Record<AiTask, { title: string; hint: string }> = {
 };
 
 const RouteSchema = z.object({ provider: z.enum(AI_PROVIDERS), model: z.string().trim().min(1).nullable() });
-const ProviderConfigSchema = z.object({
+export const ProviderConfigSchema = z.object({
   baseUrl: z.string().trim().url().nullable().default(null),
   dailyBudgetUsd: z.number().min(0).nullable().default(2),
   dailyCallLimit: z.number().int().min(1).nullable().default(300),

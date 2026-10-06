@@ -15,6 +15,7 @@ import { claudeCodeObject, findClaudeCode } from './claude-code';
 import {
   AI_SETTINGS_KEY,
   KEY_ENV_VAR,
+  ProviderConfigSchema,
   SUBSCRIPTION_PROVIDERS,
   migrateAiSettings,
   type AiProvider,
@@ -153,7 +154,7 @@ export function createAi(deps: {
   const readSettings = () => migrateAiSettings(deps.settings.get(AI_SETTINGS_KEY, z.unknown(), undefined), readEnv());
   const NO_ROUTE: AiRoute = { provider: 'none', model: null };
   const route = (task: AiTask): AiRoute => readSettings().tasks[task] ?? NO_ROUTE;
-  const providerConfig = (provider: AiProvider): AiProviderConfig => readSettings().providers[provider] ?? { baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 };
+  const providerConfig = (provider: AiProvider): AiProviderConfig => readSettings().providers[provider] ?? ProviderConfigSchema.parse({});
 
   const startOfToday = () => {
     const start = now();
@@ -184,7 +185,7 @@ export function createAi(deps: {
     const config = providerConfig(provider);
     const keyEnvVar = KEY_ENV_VAR[provider] ?? null;
     // Local OpenAI-compatible servers often take no key: only its address is required.
-    const keyPresent = provider === 'google' ? !!googleApiKey(readEnv()) : keyEnvVar && provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
+    const keyPresent = provider === 'none' ? false : provider === 'google' ? !!googleApiKey(readEnv()) : keyEnvVar && provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
     let reason: string | null = null;
     if (provider === 'none') reason = 'No AI provider selected.';
     else if (provider === 'claude-code' && !claudeBin()) reason = 'Claude Code isn’t installed on this computer. Install it and sign in with `claude auth login`.';
