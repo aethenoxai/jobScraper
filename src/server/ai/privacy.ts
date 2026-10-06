@@ -9,7 +9,7 @@ export const TASK_DATA: Record<AiTask, string> = {
   'web-job-extract': 'the address and text of job pages found on the web',
   'cv-tailor': 'the job description and your summary, work history, projects, skills, education, certifications, languages and years of experience (not your contact details)',
   'cover-letter': 'the job description and your headline, summary, years of experience, work history with dates, projects, skills, education and certifications (not your contact details)',
-  'form-answers': 'the questions of an application form, the job title and company, and your headline, summary, work history, projects, skills, education, certifications, languages and location, including project links, locations and dates (not your name, email, phone or links, and not your salary or visa/work-authorization fields)',
+  'form-answers': 'the questions of an application form, the job title and company, and your headline, summary, years of experience, skills, work history and projects (with their dates, locations and project links), education, certifications, languages, and the place you live (not your name, email, phone or personal profile links, and not your salary or visa/work-authorization fields)',
   'inbox-classify': 'the sender, subject and text of replies to your applications',
 };
 

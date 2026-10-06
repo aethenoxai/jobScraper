@@ -55,7 +55,7 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
             <li key={l.task}><span className="font-medium">{l.title}:</span> {l.notReady ? 'not set up yet, so it runs offline on this computer for now and sends nothing' : l.local ? 'nothing leaves your computer' : `sends ${l.data} to ${l.destination}`}.</li>
           ))}
         </ul>
-        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Text you wrote inside your summary, bullets or project descriptions is sent as you wrote it: if you put an email or phone number there, it goes too. With None, Job Scraper works offline with simpler, rule-based extraction and matching. Each provider’s own privacy terms apply to what it receives.</p>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Text you wrote inside your summary, bullets or project descriptions is sent as you wrote it in any task that sends it: if you put an email or phone number there, it goes too. With None, Job Scraper works offline with simpler, rule-based extraction and matching. Each provider’s own privacy terms apply to what it receives.</p>
       </Card>
     </div>
   );
