@@ -6,7 +6,7 @@ import { AI_PROVIDERS, AI_SETTINGS_KEY, migrateAiSettings, type AiProvider } fro
 import { disconnectChatGpt } from '@/server/ai/chatgpt-auth';
 import { claudeCodeSignOut } from '@/server/ai/claude-code';
 import { testProvider } from '@/server/ai/connect';
-import { applyProviderForm, testBaseUrl, testModelFor } from '@/server/ai/provider-view';
+import { applyProviderForm, applyTaskForm, testBaseUrl, testModelFor } from '@/server/ai/provider-view';
 import { liveEnv, shellDefines, writeEnvValue } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 
@@ -27,6 +27,18 @@ export async function saveProviders(_prev: ProviderActionResult | null, form: Fo
   }
   revalidatePath('/settings/ai');
   return { ok: true, message: 'Providers saved.' };
+}
+
+/** Saves which provider and model each task uses. Everything else in the settings stays as it is. */
+export async function saveTasks(_prev: ProviderActionResult | null, form: FormData): Promise<ProviderActionResult> {
+  const fields = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, String(v)]));
+  try {
+    getAppContext().settings.set(AI_SETTINGS_KEY, applyTaskForm(readSettings(), fields));
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : 'Please check the form.' };
+  }
+  revalidatePath('/settings/ai');
+  return { ok: true, message: 'Task settings saved.' };
 }
 
 /** One tiny call to the provider with the key already in .env. Routing is never changed. */

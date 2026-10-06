@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyProviderForm, modelNote, providerRows, testBaseUrl, testModelFor, type ProviderStatusLike } from './provider-view';
+import { aiStateLine, applyProviderForm, applyTaskForm, defaultModelFor, limitReached, modelNote, providerRows, testBaseUrl, testModelFor, type ProviderStatusLike } from './provider-view';
 import { DEFAULT_AI_SETTINGS, type AiSettings } from './settings';
 
 const status = (over: Partial<ProviderStatusLike>): ProviderStatusLike => ({ provider: 'google', configured: true, reason: null, keyEnvVar: 'GOOGLE_GENERATIVE_AI_API_KEY', keyPresent: true, baseUrl: null, spentTodayUsd: 0, callsToday: 0, dailyBudgetUsd: 2, dailyCallLimit: 300, ...over });
@@ -69,5 +69,90 @@ describe('testBaseUrl', () => {
     expect(testBaseUrl('google', 'https://evil.example')).toBeUndefined();
     expect(testBaseUrl('ollama', ' http://127.0.0.1:11434/api ')).toBe('http://127.0.0.1:11434/api');
     expect(testBaseUrl('openai-compatible', '')).toBeUndefined();
+  });
+});
+
+describe('applyProviderForm address rule', () => {
+  it('stores an address only for ollama and openai-compatible', () => {
+    const out = applyProviderForm(DEFAULT_AI_SETTINGS, { 'openai.baseUrl': 'https://evil.example/v1', 'ollama.baseUrl': 'http://127.0.0.1:11434/api', 'openai-compatible.baseUrl': 'https://srv/v1' });
+    expect(out.providers.openai?.baseUrl).toBeNull();
+    expect(out.providers.ollama?.baseUrl).toBe('http://127.0.0.1:11434/api');
+    expect(out.providers['openai-compatible']?.baseUrl).toBe('https://srv/v1');
+  });
+  it('clears an address an older version stored for a keyed provider', () => {
+    const cur: AiSettings = { ...DEFAULT_AI_SETTINGS, providers: { google: { baseUrl: 'https://old.example', dailyBudgetUsd: 2, dailyCallLimit: 300 } } };
+    expect(applyProviderForm(cur, { 'google.baseUrl': 'https://old.example' }).providers.google?.baseUrl).toBeNull();
+  });
+});
+
+describe('applyTaskForm', () => {
+  const cur = routed('google', ['cv-extract', 'jd-analysis'], 'gemini-x');
+  it('keeps a task that is absent from the form', () => {
+    const out = applyTaskForm(cur, { 'tasks.cv-extract.provider': 'google', 'tasks.cv-extract.model': 'new' });
+    expect(out.tasks['cv-extract']).toEqual({ provider: 'google', model: 'new' });
+    expect(out.tasks['jd-analysis']).toEqual({ provider: 'google', model: 'gemini-x' });
+  });
+  it('keeps the stored model when only the provider field is missing, and the stored provider when only the model is sent', () => {
+    expect(applyTaskForm(cur, { 'tasks.cv-extract.model': 'm2' }).tasks['cv-extract']).toEqual({ provider: 'google', model: 'm2' });
+    expect(applyTaskForm(cur, { 'tasks.cv-extract.provider': 'google' }).tasks['cv-extract']).toEqual({ provider: 'google', model: 'gemini-x' });
+  });
+  it('drops the old provider’s model when the provider changes and no model is sent', () => {
+    expect(applyTaskForm(cur, { 'tasks.cv-extract.provider': 'openai' }).tasks['cv-extract']).toEqual({ provider: 'openai', model: null });
+  });
+  it('takes the submitted model with a new provider, and never keeps a model for none', () => {
+    expect(applyTaskForm(cur, { 'tasks.cv-extract.provider': 'openai', 'tasks.cv-extract.model': ' gpt-5-mini ' }).tasks['cv-extract']).toEqual({ provider: 'openai', model: 'gpt-5-mini' });
+    expect(applyTaskForm(cur, { 'tasks.cv-extract.provider': 'none', 'tasks.cv-extract.model': 'x' }).tasks['cv-extract']).toEqual({ provider: 'none', model: null });
+  });
+  it('treats an empty model as unset', () => {
+    expect(applyTaskForm(cur, { 'tasks.cv-extract.provider': 'google', 'tasks.cv-extract.model': '  ' }).tasks['cv-extract']?.model).toBeNull();
+  });
+  it('rejects unknown tasks, providers and malformed task keys instead of writing them', () => {
+    expect(() => applyTaskForm(cur, { 'tasks.nope.provider': 'google' })).toThrow();
+    expect(() => applyTaskForm(cur, { 'tasks.cv-extract.provider': 'skynet' })).toThrow();
+    expect(() => applyTaskForm(cur, { 'tasks.cv-extract.colour': 'red' })).toThrow();
+    expect(() => applyTaskForm(cur, { 'tasks.__proto__.provider': 'google' })).toThrow();
+  });
+  it('ignores fields that are not task fields and is idempotent', () => {
+    const form = { 'tasks.cv-extract.provider': 'openai', 'tasks.cv-extract.model': 'gpt-5', other: 'x' };
+    const once = applyTaskForm(cur, form);
+    expect(applyTaskForm(once, form)).toEqual(once);
+    expect(applyTaskForm(cur, {})).toEqual(cur);
+  });
+  it('does not change the settings it was given', () => {
+    const copy = structuredClone(cur);
+    applyTaskForm(cur, { 'tasks.cv-extract.provider': 'openai' });
+    expect(cur).toEqual(copy);
+  });
+});
+
+describe('defaultModelFor', () => {
+  it('uses the provider default, else the first listed, else empty', () => {
+    expect(defaultModelFor('openai', ['a'])).toBe('gpt-5-mini');
+    expect(defaultModelFor('openai-compatible', ['srv-model'])).toBe('srv-model');
+    expect(defaultModelFor('openai-compatible', [])).toBe('');
+    expect(defaultModelFor('none', ['a'])).toBe('');
+  });
+});
+
+describe('limits and the state line', () => {
+  it('detects a used-up budget or call limit', () => {
+    expect(limitReached(status({ spentTodayUsd: 2 }))).toBe(true);
+    expect(limitReached(status({ spentTodayUsd: 1.99 }))).toBe(false);
+    expect(limitReached(status({ dailyBudgetUsd: null, spentTodayUsd: 99 }))).toBe(false);
+    expect(limitReached(status({ provider: 'chatgpt', callsToday: 300 }))).toBe(true);
+  });
+  it('says plainly that a provider at its limit puts its tasks on offline rules', () => {
+    const [row] = providerRows([status({ spentTodayUsd: 2 })], routed('google', ['cv-extract']));
+    expect(row.warning).toContain('reading your cv run on offline rules until tomorrow');
+  });
+  const t = (task: string, provider: string, configured: boolean) => ({ task, provider, configured }) as Parameters<typeof aiStateLine>[0][number];
+  it('describes all-AI, all-offline and mixed states', () => {
+    expect(aiStateLine([t('cv-extract', 'google', true), t('jd-analysis', 'google', true)], new Set())).toBe('All 2 tasks run on AI.');
+    expect(aiStateLine([t('cv-extract', 'none', false)], new Set())).toMatch(/^Offline: no task uses AI/);
+    const mixed = aiStateLine([t('cv-extract', 'google', true), t('jd-analysis', 'none', false), t('cv-tailor', 'openai', false), t('cover-letter', 'chatgpt', true)], new Set(['chatgpt']));
+    expect(mixed).toContain('1 of 4 tasks run on AI.');
+    expect(mixed).toContain('Offline by choice: understanding a job post.');
+    expect(mixed).toContain('Not ready, so on offline rules for now: tailoring your cv.');
+    expect(mixed).toContain('Daily limit reached, on offline rules until tomorrow: writing a cover letter.');
   });
 });
