@@ -133,10 +133,10 @@ export function createAi(deps: {
   env?: Record<string, string | undefined> | (() => Record<string, string | undefined>);
   now?: () => Date;
   modelFactory?: ModelFactory;
-  /** Called (with the budget) whenever the daily budget stops a call. */
-  onBudgetExceeded?: (budgetUsd: number) => void;
-  /** Called (with the limit) whenever the daily call limit of a subscription stops a call. */
-  onCallLimitReached?: (limit: number) => void;
+  /** Called (with the budget) whenever a provider's daily budget stops a call. */
+  onBudgetExceeded?: (budgetUsd: number, provider: AiProvider) => void;
+  /** Called (with the limit) whenever a plan provider's daily call limit stops a call. */
+  onCallLimitReached?: (limit: number, provider: AiProvider) => void;
   /** Where the user's Claude Code is (default: found on the PATH). */
   claudeCodeBin?: () => string | null;
   /** Runs Claude Code (tests pass a stand-in). */
@@ -231,11 +231,11 @@ export function createAi(deps: {
         { behavior: 'immediate' },
       );
       if (usageId === null && limitReached) {
-        deps.onCallLimitReached?.(callLimit!);
+        deps.onCallLimitReached?.(callLimit!, provider);
         throw new AiBudgetExceededError(`Daily limit of ${callLimit} AI calls through your ${provider} plan reached. AI work resumes tomorrow.`);
       }
       if (usageId === null) {
-        deps.onBudgetExceeded?.(config.dailyBudgetUsd!);
+        deps.onBudgetExceeded?.(config.dailyBudgetUsd!, provider);
         throw new AiBudgetExceededError(`Daily ${provider} budget of $${config.dailyBudgetUsd!.toFixed(2)} reached. AI work resumes tomorrow.`);
       }
       const record = (ok: boolean, input = 0, output = 0) =>

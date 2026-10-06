@@ -17,7 +17,7 @@ import { createProfileService } from '@/server/profile/service';
 import { createFileStore } from '@/server/storage';
 import { updateOnboarding } from '@/server/onboarding';
 import { readScraplingStatus } from '@/server/scrapling/status';
-import { startWorker, WorkerAlreadyRunningError } from './start';
+import { limitAlerts, startWorker, WorkerAlreadyRunningError } from './start';
 
 const log = createLogger({ level: 'silent' });
 const fast = { pollMs: 10, schedulerTickMs: 10, heartbeatMs: 50, log, seedDefaultSources: false };
@@ -152,5 +152,18 @@ describe('startWorker and Scrapling', () => {
       await worker.stop();
       h.close();
     }
+  });
+});
+
+describe('limitAlerts', () => {
+  it('sends one alert per provider per day, naming the provider', () => {
+    const sent: Array<[string, string]> = [];
+    const alerts = limitAlerts((_e, key, m) => sent.push([key, m.title]), () => '2026-10-06');
+    alerts.onBudgetExceeded(2, 'google');
+    alerts.onBudgetExceeded(50, 'openai');
+    alerts.onCallLimitReached(300, 'claude-code');
+    alerts.onCallLimitReached(300, 'chatgpt');
+    expect(sent.map(([k]) => k)).toEqual(['budget:google:2026-10-06', 'budget:openai:2026-10-06', 'calls:claude-code:2026-10-06', 'calls:chatgpt:2026-10-06']);
+    expect(sent[0]![1]).toMatch(/Google/);
   });
 });

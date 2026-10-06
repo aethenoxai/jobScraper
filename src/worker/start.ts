@@ -10,6 +10,7 @@ import { createScheduler, SCAN_TASK } from '@/server/scheduler';
 import { createSettings } from '@/server/settings';
 import { HEARTBEAT_GUARD_MS, HEARTBEAT_KEY, HeartbeatSchema, heartbeatLive, isProcessAlive, type Heartbeat } from '@/server/status/heartbeat';
 import { createAi } from '@/server/ai';
+import { PROVIDER_LABELS, type AiProvider } from '@/server/ai/settings';
 import { liveEnv } from '@/server/config/env-store';
 import { createCvService, PROFILE_EXTRACT_TASK } from '@/server/profile/cv-service';
 import { createProfileService } from '@/server/profile/service';
@@ -45,6 +46,17 @@ import { createTelegramClient } from '@/server/notifications/telegram/client';
 import { createDiscoveryScanHandler } from './handlers/discovery-scan';
 import { ADD_URL_TASK, createDiscoveryUrlHandler } from './handlers/discovery-url';
 import { createProfileExtractHandler } from './handlers/profile-extract';
+
+type Notify = (event: 'budget.exhausted', entityKey: string, payload: { title: string; body: string; link: string }) => unknown;
+/** One alert per provider per day: one provider running out must not hide (or stand in for) another's. */
+export function limitAlerts(notify: Notify, today: () => string) {
+  return {
+    onBudgetExceeded: (budget: number, provider: AiProvider) =>
+      notify('budget.exhausted', `budget:${provider}:${today()}`, { title: `Daily ${PROVIDER_LABELS[provider]} budget reached`, body: `$${budget.toFixed(2)} spent today on ${PROVIDER_LABELS[provider]}. Tasks that use it run on offline rules until tomorrow; other providers keep working.`, link: '/settings/ai' }),
+    onCallLimitReached: (limit: number, provider: AiProvider) =>
+      notify('budget.exhausted', `calls:${provider}:${today()}`, { title: `Daily ${PROVIDER_LABELS[provider]} call limit reached`, body: `${limit} AI calls through your ${PROVIDER_LABELS[provider]} plan today. Tasks that use it run on offline rules until tomorrow; other providers keep working.`, link: '/settings/ai' }),
+  };
+}
 
 export class WorkerAlreadyRunningError extends Error {
   override name = 'WorkerAlreadyRunningError';
@@ -127,10 +139,7 @@ export async function startWorker(opts: WorkerOptions): Promise<WorkerHandle> {
     log,
     // Keys pasted during setup land in .env while the worker runs: read them from there on every use.
     env: opts.env ?? (() => liveEnv()),
-    onBudgetExceeded: (budget) =>
-      notifier.notify('budget.exhausted', `budget:${today()}`, { title: 'Daily AI budget reached', body: `$${budget.toFixed(2)} spent today. Job Scraper uses offline rules until tomorrow.`, link: '/settings/ai' }),
-    onCallLimitReached: (limit) =>
-      notifier.notify('budget.exhausted', `calls:${today()}`, { title: 'Daily AI call limit reached', body: `${limit} AI calls through your plan today. Job Scraper uses offline rules until tomorrow.`, link: '/settings/ai' }),
+    ...limitAlerts((event, key, message) => notifier.notify(event, key, message), today),
   });
   const cvs = createCvService({ db: handle.db, files, queue, profiles, ai, log });
   const recoveredCvs = cvs.recoverInterrupted();
