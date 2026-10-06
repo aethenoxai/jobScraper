@@ -22,7 +22,7 @@ export type AiTask = (typeof AI_TASKS)[number];
 export const QUALITY_TASKS: readonly AiTask[] = ['cv-tailor', 'cover-letter'];
 
 export const TASK_LABELS: Record<AiTask, { title: string; hint: string }> = {
-  'cv-extract': { title: 'Reading your CV', hint: 'Without AI: you fill the profile in yourself.' },
+  'cv-extract': { title: 'Reading your CV', hint: 'Without AI: read on this computer with simpler rules, so check every field.' },
   'jd-analysis': { title: 'Understanding a job post', hint: 'Without AI: simpler rule-based requirements.' },
   'match-evaluate': { title: 'Scoring a match', hint: 'Without AI: offline heuristic score.' },
   'web-job-extract': { title: 'Reading a job page', hint: 'Without AI: pages without structured data are skipped.' },
