@@ -9,6 +9,8 @@ regexes = [
   '''sk-live-ABCDEF123456''', '''sk-test-1234567890''', '''dGhlIHNhbXBsZSBub25jZQ==''',
   # Pasted-key and ChatGPT-token stand-ins in the setup and sign-in tests.
   '''sk-(?:pasted|other)-123456''', '''sk-never-logged-987''', '''(?:at|rt)-(?:fresh|once|second|winner)-123456''',
+  # Google key stand-in in the AI tests (a real one is AIza + 35 chars, or the newer AQ.A… format; never hyphenated).
+  '''AIza-test-123456''',
 ]
 
 [[allowlists]]
