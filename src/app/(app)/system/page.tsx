@@ -202,7 +202,7 @@ export default function SystemPage() {
         )}
         {r.ai.byTask.length > 0 && (
           <>
-            <h3 className="mb-1 mt-4 text-sm font-medium text-neutral-500">Last {r.days} days</h3>
+            <h3 className="mb-1 mt-4 text-sm font-medium text-neutral-500">Last {r.days} days <span className="font-normal">(a call that failed in the last 3 minutes is not counted as failed yet)</span></h3>
             <table className="text-sm" data-testid="system-ai-usage">
               <thead><tr><th className={th}>What</th><th className={th}>Calls</th><th className={th}>Failed or interrupted</th><th className={th}>Cost</th></tr></thead>
               <tbody>

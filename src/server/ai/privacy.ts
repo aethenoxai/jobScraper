@@ -4,12 +4,12 @@ import { AI_TASKS, PROVIDER_LABELS, READS_FILES, TASK_LABELS, type AiProvider, t
 /** What a task sends to its provider. */
 export const TASK_DATA: Record<AiTask, string> = {
   'cv-extract': 'the text of your CV',
-  'jd-analysis': 'job descriptions',
-  'match-evaluate': 'the job title and requirements, plus the text of your profile entries and your work authorization',
+  'jd-analysis': 'job titles and descriptions',
+  'match-evaluate': 'the job title and requirements, plus your target roles, years of experience, the text of your profile entries and your work authorization',
   'web-job-extract': 'the address and text of job pages found on the web',
-  'cv-tailor': 'your profile and the job description',
-  'cover-letter': 'your profile and the job description',
-  'form-answers': 'your profile and the questions of an application form',
+  'cv-tailor': 'the job description and your work history, projects, skills, education, certifications, languages and years of experience (not your contact details)',
+  'cover-letter': 'the job description and your headline, summary, work history with dates, projects, skills, education and certifications (not your contact details)',
+  'form-answers': 'the questions of an application form, the job title and company, and your headline, summary, work history, projects, skills, education, certifications, languages and city (not your contact details, salary or visa data)',
   'inbox-classify': 'the sender, subject and text of replies to your applications',
 };
 
