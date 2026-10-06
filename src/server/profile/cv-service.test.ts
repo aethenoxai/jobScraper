@@ -10,7 +10,7 @@ import { CvTooLargeError, MAX_CV_BYTES, UnsupportedCvTypeError } from './cv-text
 import { createCvService, PROFILE_EXTRACT_TASK } from './cv-service';
 import { createProfileService } from './service';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { heuristicExtract } from './heuristic';
 
 /** A valid answer from the model (contents don't matter to these tests). */
@@ -129,15 +129,12 @@ describe('cv service', () => {
     const queue = createQueue(t.db);
     const profiles = createProfileService({ db: t.db, files });
     const p = profiles.create('Engineer');
-    const slowAi: Ai = {
-      ...fakeRoutes(['cv-extract']),
-      generateObject: async () => {
+    const slowAi: Ai = routedAi(['cv-extract'], async () => {
         const edited = profiles.get(p.id)!.data;
         edited.personal.fullName = 'Typed By User';
         profiles.updateData(p.id, edited, { byUser: true }); // user saves mid-extraction
         return okExtraction();
-      },
-    };
+      },);
     const cvs = createCvService({ db: t.db, files, queue, profiles, ai: slowAi, log });
     const cv = await cvs.upload(p.id, 'cv.pdf', fixture('software-engineer-india.pdf'));
     await cvs.runExtraction(cv.id);
@@ -178,14 +175,11 @@ describe('heuristic output', () => {
       const queue = createQueue(t.db);
       const profiles = createProfileService({ db: t.db, files });
       const seen: Array<{ mediaType?: string }> = [];
-      const ai: Ai = {
-        ...fakeRoutes(['cv-extract']),
-        generateObject: async (req) => {
+      const ai: Ai = routedAi(['cv-extract'], async (req) => {
           seen.push({ mediaType: req.file?.mediaType });
           if (fail) throw new Error('model overloaded');
           return okExtraction();
-        },
-      };
+        },);
       return { queue, profiles, seen, cvs: createCvService({ db: t.db, files, queue, profiles, ai, log }) };
     }
 

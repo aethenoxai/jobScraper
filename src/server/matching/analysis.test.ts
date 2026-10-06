@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { jobAnalyses } from '../db/schema';
 import { analyzeJob, heuristicAnalysis, type JobRequirements } from './analysis';
 
@@ -62,13 +62,10 @@ describe('analyzeJob', () => {
   beforeEach(() => (t = createTempDb()));
   afterEach(() => t.cleanup());
 
-  const aiReturning = (out: JobRequirements, calls: { n: number }): Ai => ({
-    ...fakeRoutes(['jd-analysis']),
-    generateObject: async () => {
+  const aiReturning = (out: JobRequirements, calls: { n: number }): Ai => (routedAi(['jd-analysis'], async () => {
       calls.n++;
       return out as never;
-    },
-  });
+    },));
 
   it('caches per description and drops requirements the AI invented', async () => {
     const calls = { n: 0 };
@@ -88,7 +85,7 @@ describe('analyzeJob', () => {
 
   it('uses the offline analysis when AI fails, and upgrades later', async () => {
     const listing = { title: 'Senior Backend Engineer', description: JD, descriptionHash: 'h2' };
-    const broken: Ai = { ...fakeRoutes(['jd-analysis']), generateObject: async () => { throw new Error('quota'); } };
+    const broken: Ai = routedAi(['jd-analysis'], async () => { throw new Error('quota'); });
     expect((await analyzeJob(listing, { db: t.db, ai: broken })).method).toBe('heuristic');
     const calls = { n: 0 };
     const ok = aiReturning({ requirements: [{ text: 'Kafka', kind: 'skill', mandatory: true }], yearsExperienceMin: null, seniority: null, summary: null, applyEmail: null, skills: [] }, calls);

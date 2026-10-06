@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import type { JobRequirements } from '../matching/analysis';
 import { assignIds, emptyProfile, type ProfileData } from '../profile/model';
 import { tailorCv } from './ai';
@@ -21,15 +21,12 @@ const good = { headline: 'Full Stack Developer', summary: 'Full stack developer 
 const bad = { ...good, skills: ['Node.js', 'Kubernetes'], experience: [{ id: 'exp_a', bullets: [{ text: 'Cut latency by 80%', sources: ['bul_1'] }] }] };
 
 function fakeAi(outputs: unknown[], prompts: string[] = []): Ai {
-  return {
-    ...fakeRoutes(['cv-tailor']),
-    generateObject: async (req) => {
+  return routedAi(['cv-tailor'], async (req) => {
       prompts.push(req.prompt);
       const next = outputs.shift();
       if (next instanceof Error) throw next;
       return next as never;
-    },
-  };
+    },);
 }
 
 describe('tailorCv', () => {

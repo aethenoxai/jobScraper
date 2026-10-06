@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { assignIds, emptyProfile, type ProfileData } from '../profile/model';
 import { mapFields, mapWithAi, type FormField } from './fields';
 
@@ -65,7 +65,7 @@ describe('mapFields (rules from the profile)', () => {
 });
 
 describe('mapWithAi (the rest, grounded)', () => {
-  const ai = (out: unknown): Ai => ({ ...fakeRoutes(['form-answers']), generateObject: async () => out as never });
+  const ai = (out: unknown): Ai => (routedAi(['form-answers'], async () => out as never));
   const fields = [
     f('y', 'How many years of backend experience do you have? *', { required: true }),
     f('o', 'Preferred work arrangement', { kind: 'select', options: ['Remote', 'Hybrid', 'On-site'] }),
@@ -120,7 +120,7 @@ describe('truthful legal answers (M7 review)', () => {
 });
 
 describe('AI mapper limits (M7 review)', () => {
-  const ai = (out: unknown): Ai => ({ ...fakeRoutes(['form-answers']), generateObject: async () => out as never });
+  const ai = (out: unknown): Ai => (routedAi(['form-answers'], async () => out as never));
   it('never answers demographic questions or legal questions the rules left open, and needs evidence for options', async () => {
     const fields = [
       f('g', 'Gender identity', { kind: 'select', options: ['Male', 'Female', 'Non-binary'] }),
@@ -141,7 +141,7 @@ describe('AI mapper limits (M7 review)', () => {
 });
 
 describe('AI answers must be supported by the profile (final review C1)', () => {
-  const ai = (out: unknown): Ai => ({ ...fakeRoutes(['form-answers']), generateObject: async () => out as never });
+  const ai = (out: unknown): Ai => (routedAi(['form-answers'], async () => out as never));
   const lead = () => {
     const p = profile();
     p.yearsExperience = 3;

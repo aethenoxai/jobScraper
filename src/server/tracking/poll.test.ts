@@ -2,7 +2,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { createApplicationService } from '../applications/service';
 import { inboxMessages, notifications, sources } from '../db/schema';
 import { createIngestor } from '../jobs/ingest';
@@ -42,7 +42,7 @@ function fakeMailbox(mails: Mail[]) {
   };
   return { session, reads };
 }
-const fakeAi = (out: unknown, onCall?: () => void): Ai => ({ ...fakeRoutes(['inbox-classify']), generateObject: async () => (onCall?.(), out as never) });
+const fakeAi = (out: unknown, onCall?: () => void): Ai => (routedAi(['inbox-classify'], async () => (onCall?.(), out as never)));
 const mail = (uid: number, over: Partial<Mail>): Mail => ({ uid, messageId: `<m${uid}@x>`, from: 'someone@gmail.com', fromName: '', subject: '', date: clock, inReplyTo: null, references: [], text: '', ...over });
 
 async function setup(mails: Mail[], trackingSettings: Record<string, unknown> = {}, opts: { ai?: Ai | null; box?: ReturnType<typeof fakeMailbox> } = {}) {

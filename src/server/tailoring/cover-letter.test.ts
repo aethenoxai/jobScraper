@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import type { JobRequirements } from '../matching/analysis';
 import { assignIds, emptyProfile, type ProfileData } from '../profile/model';
 import { coverLetterText, offlineCoverLetter, validateCoverLetter, writeCoverLetter, type CoverLetter } from './cover-letter';
@@ -34,15 +34,12 @@ const analysis: JobRequirements = {
 const job = { title: 'Senior Backend Engineer', company: 'Acme Payments', description: 'Join a team of 12 engineers. Requirements: 4+ years, Go, PostgreSQL.' };
 
 function fakeAi(outputs: unknown[], prompts: string[] = []): Ai {
-  return {
-    ...fakeRoutes(['cover-letter']),
-    generateObject: async (req) => {
+  return routedAi(['cover-letter'], async (req) => {
       prompts.push(req.prompt);
       const next = outputs.shift();
       if (next instanceof Error) throw next;
       return next as never;
-    },
-  };
+    },);
 }
 const letter = (paragraphs: string[]): Omit<CoverLetter, 'method'> => ({ greeting: 'Dear Acme Payments hiring team,', paragraphs, closing: 'Kind regards,' });
 

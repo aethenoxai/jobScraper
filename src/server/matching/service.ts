@@ -4,7 +4,7 @@ import type { Ai } from '../ai';
 import { SUBSCRIPTION_PROVIDERS } from '../ai/settings';
 import type { Db } from '../db';
 import { containsText } from '../db/search';
-import { applicationEvents, applications, jobListings, jobs, matches, sources } from '../db/schema';
+import { applicationEvents, applications, jobAnalyses, jobListings, jobs, matches, sources } from '../db/schema';
 import type { Logger } from '../logging';
 import type { ProfileRecord, ProfileService } from '../profile/service';
 import type { Queue } from '../queue';
@@ -191,7 +191,11 @@ export function createMatchService(deps: { db: Db; ai: Ai | null; queue: Queue; 
       if (!job || !profile) throw new Error('Job or profile not found');
       const existing = db.select().from(matches).where(and(eq(matches.profileId, profileId), eq(matches.jobId, jobId))).get();
       // Offline-scored matches are redone once an AI provider is available (e.g. after the daily budget resets).
-      const upgrade = existing?.method === 'heuristic' && !!deps.ai?.taskStatus('match-evaluate').configured;
+      // Either of its two AI tasks can upgrade it: the evaluation, or a JD analysis still done offline (it changes the requirements).
+      const upgrade =
+        existing?.method === 'heuristic' &&
+        (!!deps.ai?.taskStatus('match-evaluate').configured ||
+          (!!deps.ai?.taskStatus('jd-analysis').configured && db.select({ method: jobAnalyses.method }).from(jobAnalyses).where(eq(jobAnalyses.descriptionHash, jobText(job).descriptionHash)).get()?.method === 'heuristic'));
       if (!opts.force && !upgrade && existing && existing.jobVersion === job.lastChangedAt.getTime() && existing.profileVersion === profileVersion(profile)) {
         if (existing.sliderValue === profile.sliderValue || existing.method === 'gate') {
           return { matchId: existing.id, score: existing.score, decision: existing.decision, newlySurfaced: false, skipped: true };

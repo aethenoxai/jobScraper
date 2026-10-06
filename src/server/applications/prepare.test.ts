@@ -2,7 +2,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { notifications, sources } from '../db/schema';
 import { createIngestor } from '../jobs/ingest';
 import { createLogger } from '../logging';
@@ -60,14 +60,11 @@ describe('application.prepare', () => {
   it('stops spending AI as soon as the application is withdrawn mid-preparation (M5 deferred minor)', async () => {
     const { apps, app, deps, ctx } = await setup();
     const tasks: string[] = [];
-    const ai = {
-      ...fakeRoutes(['cv-tailor', 'cover-letter']),
-      generateObject: async (req: { task: string }) => {
+    const ai = routedAi(['cv-tailor', 'cover-letter'], async (req: { task: string }) => {
         tasks.push(req.task);
         apps.withdraw(app.id); // the user withdraws while the CV is being tailored
         throw new Error('slow model');
-      },
-    } as unknown as Ai;
+      },) as unknown as Ai;
     await createPrepareHandler({ ...deps, ai })({ applicationId: app.id }, ctx());
     expect(tasks).toEqual(['cv-tailor']);
     expect(apps.get(app.id)?.status).toBe('WITHDRAWN');

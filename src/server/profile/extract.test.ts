@@ -1,20 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { SYNTHETIC_CVS } from '../../../tests/fixtures/cvs/synthetic';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { registerSecret } from '../logging';
 import { AiExtractionSchema, extractProfile, type AiExtraction } from './extract';
 
 const cv = SYNTHETIC_CVS[0]; // Asha Rao, software engineer
 
 function fakeAi(output: AiExtraction | Error): Ai {
-  return {
-    ...fakeRoutes(['cv-extract']),
-    generateObject: async () => {
+  return routedAi(['cv-extract'], async () => {
       if (output instanceof Error) throw output;
       return output as never;
-    },
-  };
+    },);
 }
 
 function aiOutput(overrides: Partial<AiExtraction> = {}): AiExtraction {
@@ -84,13 +81,13 @@ describe('extractProfile', () => {
   });
 
   it('reads the CV offline when only other tasks have a provider', async () => {
-    const other: Ai = { ...fakeRoutes(['jd-analysis']), generateObject: async () => { throw new Error('must not be called'); } };
+    const other: Ai = routedAi(['jd-analysis'], async () => { throw new Error('must not be called'); });
     expect((await extractProfile(cv.text, other)).method).toBe('heuristic');
   });
 
   it('gives the model the original document as well as its text', async () => {
     const seen: Array<{ file?: { mediaType: string }; prompt: string }> = [];
-    const ai: Ai = { ...fakeRoutes(['cv-extract']), generateObject: async (req) => (seen.push(req), aiOutput() as never) };
+    const ai: Ai = routedAi(['cv-extract'], async (req) => (seen.push(req), aiOutput() as never));
     const file = { data: new Uint8Array([1, 2, 3]), mediaType: 'application/pdf' };
     await extractProfile(cv.text, ai, { file });
     expect(seen[0].file).toBe(file);

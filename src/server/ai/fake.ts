@@ -1,4 +1,4 @@
-import type { Ai, AiTask, ProviderStatus, TaskStatus } from './index';
+import type { Ai, AiTask, GenerateObjectRequest, ProviderStatus, TaskStatus } from './index';
 
 /**
  * The status half of a test double for `Ai`: only the listed tasks have a provider, every other task runs
@@ -12,5 +12,16 @@ export function fakeRoutes(configured: AiTask[], providers: Partial<ProviderStat
       return { task, provider: on ? 'openai' : 'none', model: on ? 'test-model' : null, configured: on, reason: on ? null : 'This task runs offline.' };
     },
     providerStatus: (provider): ProviderStatus => ({ provider, configured: provider !== 'none', reason: null, keyEnvVar: null, keyPresent: true, baseUrl: null, spentTodayUsd: 0, callsToday: 0, dailyBudgetUsd: null, dailyCallLimit: null, ...providers }),
+  };
+}
+
+/** A full `Ai` double: `fakeRoutes` plus a `generateObject` that fails if the call names a task this fake isn't configured for. */
+export function routedAi(configured: AiTask[], generate: (req: GenerateObjectRequest<never>) => unknown, providers: Partial<ProviderStatus> = {}): Ai {
+  return {
+    ...fakeRoutes(configured, providers),
+    generateObject: (async (req: GenerateObjectRequest<never>) => {
+      if (!configured.includes(req.task)) throw new Error(`generateObject was sent task '${req.task}', but this fake is configured for ${configured.join(', ')}`);
+      return generate(req);
+    }) as Ai['generateObject'],
   };
 }

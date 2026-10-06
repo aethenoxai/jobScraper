@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { assignIds, DEFAULT_SLIDER, emptyProfile, type ProfileData } from '../profile/model';
 import type { JobRequirements } from './analysis';
 import { evaluateMatch, heuristicEvaluate } from './evaluate';
@@ -55,11 +55,8 @@ describe('evaluateMatch with AI', () => {
   it('downgrades "met" answers whose evidence is not in the profile and fills gaps offline', async () => {
     const profile = engineer();
     const skillId = profile.skills[0].id;
-    const ai: Ai = {
-      ...fakeRoutes(['match-evaluate']),
-      generateObject: async () =>
-        ({ requirements: [{ index: 0, status: 'met', evidence: [profile.experience[0].id], note: null }, { index: 1, status: 'met', evidence: ['invented_id'], note: null }, { index: 2, status: 'met', evidence: [skillId], note: null }], roleFit: 90, strengths: ['Go'], gaps: [] }) as never,
-    };
+    const ai: Ai = routedAi(['match-evaluate'], async () =>
+        ({ requirements: [{ index: 0, status: 'met', evidence: [profile.experience[0].id], note: null }, { index: 1, status: 'met', evidence: ['invented_id'], note: null }, { index: 2, status: 'met', evidence: [skillId], note: null }], roleFit: 90, strengths: ['Go'], gaps: [] }) as never,);
     const e = await evaluateMatch(analysis, profile, 1, { ai });
     expect(e.method).toBe('ai');
     expect(e.requirements[0].status).toBe('met');
@@ -68,7 +65,7 @@ describe('evaluateMatch with AI', () => {
   });
 
   it('falls back to the offline evaluation when AI fails', async () => {
-    const ai: Ai = { ...fakeRoutes(['match-evaluate']), generateObject: async () => { throw new Error('budget'); } };
+    const ai: Ai = routedAi(['match-evaluate'], async () => { throw new Error('budget'); });
     expect((await evaluateMatch(analysis, engineer(), 1, { ai })).method).toBe('heuristic');
   });
 });
@@ -165,7 +162,7 @@ describe('hard-requirement cap only for truly unmet hard requirements (review C1
   });
 
   it('AI "unmet" for authorization becomes partial when the profile does not say', async () => {
-    const ai = { ...fakeRoutes(['match-evaluate']), generateObject: async () => ({ requirements: [{ index: 0, status: 'unmet', evidence: [], note: null }], roleFit: 80, strengths: [], gaps: [] }) as never };
+    const ai = routedAi(['match-evaluate'], async () => ({ requirements: [{ index: 0, status: 'unmet', evidence: [], note: null }], roleFit: 80, strengths: [], gaps: [] }) as never);
     const e = await evaluateMatch(base([{ text: 'Must be authorized to work in the US', kind: 'authorization', mandatory: true }]), assignIds(emptyProfile()), 1, { ai });
     expect(e.requirements[0].status).toBe('partial');
   });

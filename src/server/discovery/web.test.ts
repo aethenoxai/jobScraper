@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { collect, fixtureHttp, fixturePages } from '../sources/testing/contract';
 import type { Ai } from '../ai';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { SourceError } from '../sources/types';
 import { planQueries, web } from './web';
 
@@ -134,6 +134,19 @@ describe('web discovery reads pages with Scrapling', () => {
     expect((err as SourceError).code).toBe('SOURCE_UNAVAILABLE');
   });
 
+  it('the AI fallback for pages without structured data is gated on the web-job-extract task, not on other tasks', async () => {
+    const results = { web: { results: [{ url: 'https://a.test/1', title: 'a' }] } };
+    const run = async (tasks: Parameters<typeof routedAi>[0]) => {
+      const http = fixtureHttp(site({ 'api.search.brave.com': results, 'robots.txt': '', 'a.test/1': '<html><body>Senior Backend Engineer at Tiny Startup</body></html>' }));
+      const asked: string[] = [];
+      const ai = routedAi(tasks, (o) => (asked.push(o.prompt), { isSingleJobPosting: false, title: null, company: null, location: null }));
+      await collect(web, config, http, { env, hints, pages: fixturePages(http), ai });
+      return asked;
+    };
+    expect(await run(['jd-analysis', 'cv-extract'])).toEqual([]);
+    expect(await run(['web-job-extract'])).toHaveLength(1);
+  });
+
   it('does not start the AI fallback once the run’s time budget is used up (the scan would drop the whole run)', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     try {
@@ -147,7 +160,7 @@ describe('web discovery reads pages with Scrapling', () => {
         },
       };
       const asked: string[] = [];
-      const ai = { ...fakeRoutes(['web-job-extract']), generateObject: async (o: { prompt: string }) => (asked.push(o.prompt), { isSingleJobPosting: false, title: null, company: null, location: null }) } as unknown as Ai;
+      const ai = routedAi(['web-job-extract'], async (o: { prompt: string }) => (asked.push(o.prompt), { isSingleJobPosting: false, title: null, company: null, location: null })) as unknown as Ai;
       await collect(web, config, http, { env, hints, pages, ai });
       expect(asked).toEqual([]);
     } finally {

@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTempDb } from '../../../tests/helpers/temp-db';
-import { fakeRoutes } from '../ai/fake';
+import { routedAi } from '../ai/fake';
 import { applicationEvents, applications, jobAnalyses, jobListings, jobs, matches, sources } from '../db/schema';
 import { createIngestor } from '../jobs/ingest';
 import { createLogger } from '../logging';
@@ -268,7 +268,7 @@ describe('match service', () => {
     const job = add(1, 'x');
     await svc.evaluate(job, profileId);
     expect(t.db.select().from(matches).get()?.method).toBe('heuristic');
-    const ai = { ...fakeRoutes(['match-evaluate']), generateObject: async () => { throw new Error('still learning'); } };
+    const ai = routedAi(['match-evaluate'], async () => { throw new Error('still learning'); });
     const withAi = createMatchService({ db: t.db, ai, queue, profiles, log: createLogger({ level: 'silent' }), now: () => clock });
     expect((await withAi.evaluate(job, profileId)).skipped).toBeFalsy();
   });
@@ -286,13 +286,10 @@ describe('match service', () => {
 });
 
 describe('evaluations that are interrupted or overtaken (final review, core minors)', () => {
-  const aiThat = (onCall: () => void) => ({
-    ...fakeRoutes(['jd-analysis', 'match-evaluate']),
-    generateObject: async () => {
+  const aiThat = (onCall: () => void) => (routedAi(['jd-analysis', 'match-evaluate'], async () => {
       onCall();
       throw new Error('model unavailable');
-    },
-  });
+    },));
 
   it('a slider change made while a job is being evaluated applies to that evaluation', async () => {
     const { add, profileId, profiles, queue } = setup();

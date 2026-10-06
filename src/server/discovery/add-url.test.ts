@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { routedAi } from '../ai/fake';
 import { createTempDb } from '../../../tests/helpers/temp-db';
 import { jobListings, jobs } from '../db/schema';
 import { createIngestor } from '../jobs/ingest';
@@ -59,6 +60,16 @@ describe('addJobByUrl', () => {
 
   it('explains that LinkedIn and similar pages must be pasted instead', async () => {
     await expect(addJobByUrl('https://www.linkedin.com/jobs/view/42', deps({}))).rejects.toThrow(/paste/i);
+  });
+
+  it('falls back to the AI only when the web-job-extract task is configured, not for other tasks', async () => {
+    const routes = { 'blog.test/post': '<html><body>Senior Backend Engineer at Tiny Startup. Apply now.</body></html>' };
+    const asked: string[] = [];
+    const withTasks = (tasks: Parameters<typeof routedAi>[0]) => ({ ...deps(routes), ai: routedAi(tasks, (o) => (asked.push(o.prompt), { isSingleJobPosting: true, title: 'Senior Backend Engineer', company: 'Tiny Startup', location: null })) });
+    await expect(addJobByUrl('https://blog.test/post', withTasks(['jd-analysis', 'cv-tailor']))).rejects.toBeInstanceOf(AddJobError);
+    expect(asked).toEqual([]);
+    await addJobByUrl('https://blog.test/post', withTasks(['web-job-extract']));
+    expect(asked).toHaveLength(1);
   });
 
   it('rejects pages without job details when no AI is configured', async () => {
