@@ -31,7 +31,7 @@ export interface SystemReport {
   notifications: Array<{ channel: string; sent: number; failed: number; pending: number; lastError: string | null }>;
   emails: { sent: number; failed: number; uncertain: number; sending: number; lastError: string | null };
   queue: { counts: Record<'pending' | 'running' | 'done' | 'failed', number>; failed: Array<{ id: number; type: string; attempts: number; lastError: string | null; updatedAt: Date }> };
-  ai: { todayUsd: number; weekUsd: number; failedCalls: number; byTask: Array<{ task: string; calls: number; usd: number }> };
+  ai: { todayUsd: number; weekUsd: number; failedCalls: number; byTask: Array<{ task: string; calls: number; failed: number; usd: number }> };
 }
 
 const n = (v: unknown) => Number(v ?? 0);
@@ -101,12 +101,12 @@ export function systemReport(db: Db, opts: { now?: Date; days?: number } = {}): 
 
   const spend = (from: Date) => n(db.select({ usd: sum(aiUsage.costUsd) }).from(aiUsage).where(gte(aiUsage.createdAt, from)).get()?.usd);
   const byTask = db
-    .select({ task: aiUsage.task, calls: count(), usd: sum(aiUsage.costUsd) })
+    .select({ task: aiUsage.task, calls: count(), failed: sum(sql`${aiUsage.ok} = 0`), usd: sum(aiUsage.costUsd) })
     .from(aiUsage)
     .where(gte(aiUsage.createdAt, since))
     .groupBy(aiUsage.task)
     .all()
-    .map((r) => ({ task: r.task, calls: n(r.calls), usd: n(r.usd) }))
+    .map((r) => ({ task: r.task, calls: n(r.calls), failed: n(r.failed), usd: n(r.usd) }))
     .sort((a, b) => b.usd - a.usd);
 
   return {

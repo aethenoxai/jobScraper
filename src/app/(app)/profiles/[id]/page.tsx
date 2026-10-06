@@ -62,11 +62,14 @@ export default async function ProfilePage({ params }: PageProps<'/profiles/[id]'
       )}
 
       <Card title="Master CV">
-        {!aiStatus.configured && (
-          <p className="mb-3 text-sm text-neutral-500">
-            No AI provider is set up, so CVs are read with the offline extractor. It finds the basics, but review every field. <Link href="/settings/ai" className="underline">Set up AI</Link> for better extraction.
-          </p>
-        )}
+        <p className="mb-3 text-sm text-neutral-500" data-testid="cv-reader">
+          {aiStatus.configured
+            ? `CVs are read by ${aiStatus.provider} · ${aiStatus.model}. Check the fields it fills before you rely on them.`
+            : aiStatus.provider === 'none'
+              ? 'CV reading is set to None, so CVs are read on this computer with the offline extractor. It finds the basics, but review every field.'
+              : `CV reading is set to ${aiStatus.provider}, but it can't run yet (${(aiStatus.reason ?? 'not set up').replace(/\.$/, '')}), so CVs are read with the offline extractor for now. Review every field.`}{' '}
+          <Link href="/settings/ai" className="underline">Change how CVs are read</Link>
+        </p>
         <CvUploadForm profileId={id} busy={busy} />
         {cvList.length > 0 && (
           <ul className="mt-4 divide-y divide-neutral-200 text-sm dark:divide-neutral-800">

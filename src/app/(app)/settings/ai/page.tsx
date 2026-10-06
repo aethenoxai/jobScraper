@@ -8,6 +8,7 @@ import { chatGptAccount } from '@/server/ai/chatgpt-auth';
 import { claudeCodeStatus } from '@/server/ai/claude-code';
 import { listModels, type ModelList } from '@/server/ai/models';
 import { aiStateLine, limitReached, modelNote, providerRows } from '@/server/ai/provider-view';
+import { privacyLines } from '@/server/ai/privacy';
 import { liveEnv } from '@/server/config/env-store';
 import { getAppContext } from '@/server/context';
 
@@ -32,6 +33,7 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
   const models = Object.fromEntries(AI_PROVIDERS.map((p) => [p, lists[p].models])) as Record<AiProvider, string[]>;
   const taskStatuses = AI_TASKS.map((t) => ai.taskStatus(t));
   const notes = Object.fromEntries(taskStatuses.filter((t) => t.provider !== 'none' && !t.configured && t.reason).map((t) => [t.task, t.reason])) as Partial<Record<AiTask, string>>;
+  const privacy = privacyLines(taskStatuses, Object.fromEntries(statuses.map((s) => [s.provider, s.baseUrl])));
   const stateLine = aiStateLine(taskStatuses, new Set(statuses.filter(limitReached).map((s) => s.provider)));
   return (
     <div className="max-w-3xl space-y-6">
@@ -45,9 +47,15 @@ export default async function AiSettingsPage({ searchParams }: PageProps<'/setti
         <AiSettingsForm tasks={current.tasks} models={models} notes={notes} />
       </Card>
       <Card title="What leaves your machine">
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          When AI is enabled, the text of your CV and of job descriptions is sent to the provider you choose, so it can extract, match and tailor. With ChatGPT it goes to OpenAI under your ChatGPT plan; with Claude Code, to Anthropic through your own Claude Code. With Ollama, everything stays on your computer. With “None”, Job Scraper works offline with simpler, rule-based extraction and matching.
+        <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
+          Each task goes to the provider you chose for it, and only its own data is sent. Nothing is sent for a task set to None, or to Ollama on your own computer.
         </p>
+        <ul className="space-y-1 text-sm" data-testid="ai-privacy">
+          {privacy.map((l) => (
+            <li key={l.task}><span className="font-medium">{l.title}:</span> {l.local ? 'nothing leaves your computer' : `sends ${l.data} to ${l.destination}`}.</li>
+          ))}
+        </ul>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">With None, Job Scraper works offline with simpler, rule-based extraction and matching. Each provider’s own privacy terms apply to what it receives.</p>
       </Card>
     </div>
   );

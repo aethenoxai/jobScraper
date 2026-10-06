@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { AutoRefresh } from '@/components/auto-refresh';
 import { Badge, Card, Notice, PageHeader } from '@/components/ui';
 import { formatWhen, plural } from '@/lib/format';
+import { AI_PROVIDERS, AI_TASKS, PROVIDER_LABELS, SUBSCRIPTION_PROVIDERS, TASK_LABELS } from '@/server/ai';
+import { usageLabel } from '@/server/ai/privacy';
 import { getAppContext } from '@/server/context';
 import { createFailureLog, describeFailure } from '@/server/failures';
 import { describeInterval } from '@/server/scheduler';
@@ -27,6 +29,8 @@ export default function SystemPage() {
   const s = getSystemStatus(ctx);
   const now = s.generatedAt;
   const r = systemReport(ctx.db, { now: new Date(now) });
+  const taskRoutes = AI_TASKS.map((t) => ctx.ai.taskStatus(t));
+  const providersInUse = AI_PROVIDERS.filter((p) => p !== 'none' && taskRoutes.some((t) => t.provider === p)).map((p) => ctx.ai.providerStatus(p));
   const failingSources = r.sources.filter((x) => x.enabled && x.consecutiveFailures > 0);
   const problems = createFailureLog(ctx.settings).recent().filter((p) => now - p.at < r.days * 86_400_000);
   const v = versionInfo();
@@ -157,17 +161,58 @@ export default function SystemPage() {
 
       <Card title="AI usage">
         <p className="mb-3 text-sm" data-testid="system-ai">
-          Today {usd(r.ai.todayUsd)} · this week {usd(r.ai.weekUsd)}{r.ai.failedCalls ? ` · ${plural(r.ai.failedCalls, 'failed call')}` : ''}. Limit and provider: <Link href="/settings/ai" className="underline">AI provider</Link>.
+          Today {usd(r.ai.todayUsd)} · this week {usd(r.ai.weekUsd)}{r.ai.failedCalls ? ` · ${plural(r.ai.failedCalls, 'failed call')}` : ''}. Change providers and limits: <Link href="/settings/ai" className="underline">AI provider</Link>.
         </p>
-        {r.ai.byTask.length > 0 && (
-          <table className="text-sm">
-            <thead><tr><th className={th}>Task</th><th className={th}>Calls</th><th className={th}>Cost</th></tr></thead>
+        <table className="text-sm" data-testid="system-ai-routes">
+          <thead><tr><th className={th}>Task</th><th className={th}>Runs on</th></tr></thead>
+          <tbody>
+            {taskRoutes.map((t) => (
+              <tr key={t.task} className="border-t border-neutral-200 dark:border-neutral-800">
+                <td className={td}>{TASK_LABELS[t.task].title}</td>
+                <td className={td}>
+                  {t.provider === 'none' ? (
+                    <span className="text-neutral-500">Offline on purpose (None). {TASK_LABELS[t.task].hint}</span>
+                  ) : (
+                    <>
+                      {PROVIDER_LABELS[t.provider]} · {t.model ?? 'no model chosen'}
+                      {!t.configured && <> <Badge tone="amber">Not ready</Badge> <span className="text-neutral-500">{t.reason}</span></>}
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {providersInUse.length > 0 && (
+          <table className="mt-4 text-sm" data-testid="system-ai-providers">
+            <thead><tr><th className={th}>Provider</th><th className={th}>Today</th><th className={th}>Daily limit</th></tr></thead>
             <tbody>
-              {r.ai.byTask.map((x) => (
-                <tr key={x.task} className="border-t border-neutral-200 dark:border-neutral-800"><td className={td}>{x.task}</td><td className={td}>{x.calls}</td><td className={td}>{usd(x.usd)}</td></tr>
-              ))}
+              {providersInUse.map((p) => {
+                const plan = SUBSCRIPTION_PROVIDERS.includes(p.provider);
+                return (
+                  <tr key={p.provider} className="border-t border-neutral-200 dark:border-neutral-800">
+                    <td className={td}>{PROVIDER_LABELS[p.provider]}</td>
+                    <td className={td}>{plan ? plural(p.callsToday, 'call') : `${plural(p.callsToday, 'call')} · ${usd(p.spentTodayUsd)}`}</td>
+                    <td className={td}>{plan ? (p.dailyCallLimit === null ? 'none' : plural(p.dailyCallLimit, 'call')) : p.dailyBudgetUsd === null ? 'none' : usd(p.dailyBudgetUsd)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        )}
+        {r.ai.byTask.length > 0 && (
+          <>
+            <h3 className="mb-1 mt-4 text-sm font-medium text-neutral-500">Last {r.days} days</h3>
+            <table className="text-sm" data-testid="system-ai-usage">
+              <thead><tr><th className={th}>What</th><th className={th}>Calls</th><th className={th}>Failed</th><th className={th}>Cost</th></tr></thead>
+              <tbody>
+                {r.ai.byTask.map((x) => (
+                  <tr key={x.task} className="border-t border-neutral-200 dark:border-neutral-800"><td className={td}>{usageLabel(x.task)}</td><td className={td}>{x.calls}</td><td className={td}>{x.failed}</td><td className={td}>{usd(x.usd)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-2 text-xs text-neutral-500">Calls through a ChatGPT or Claude plan cost $0 here; they count against the daily call limit instead.</p>
+          </>
         )}
       </Card>
 

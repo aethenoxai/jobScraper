@@ -99,8 +99,8 @@ describe('systemReport (PRD §52)', () => {
     expect(r.ai.weekUsd).toBeCloseTo(0.551);
     expect(r.ai.failedCalls).toBe(1);
     expect(r.ai.byTask).toEqual([
-      { task: 'tailor-cv', calls: 3, usd: expect.closeTo(0.55) },
-      { task: 'match-score', calls: 1, usd: expect.closeTo(0.001) },
+      { task: 'tailor-cv', calls: 3, failed: 0, usd: expect.closeTo(0.55) },
+      { task: 'match-score', calls: 1, failed: 1, usd: expect.closeTo(0.001) },
     ]);
   });
 
