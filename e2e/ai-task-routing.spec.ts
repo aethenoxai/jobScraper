@@ -48,4 +48,6 @@ test('each task gets its own provider and model; apply to all fills every row', 
   await expect(page.getByTestId('tasks-saved')).toContainText('saved');
   await page.reload();
   for (const r of before) await expect(page.getByTestId(r.id).getByLabel(/^Provider for/)).toHaveValue(r.provider);
+  // The model too (a typed one goes through "Other…"): the hidden field is what the form submits.
+  for (const r of before) await expect(page.getByTestId(r.id).locator('input[type=hidden][name$=".model"]')).toHaveValue(r.model);
 });
