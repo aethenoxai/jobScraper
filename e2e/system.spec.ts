@@ -6,6 +6,8 @@ test('the System page shows what ran and what went wrong (PRD §52)', async ({ p
   await expect(page.getByRole('heading', { name: 'System' })).toBeVisible();
   await expect(page.getByTestId('system-overview')).toContainText('Online');
   for (const id of ['system-problems', 'system-discovery', 'system-failures', 'system-emails', 'system-queue', 'system-ai']) await expect(page.getByTestId(id)).toBeVisible();
+  // Every AI task shows where it runs.
+  await expect(page.getByTestId('system-ai-routes').locator('tbody tr')).toHaveCount(8);
   // The browser-apply spec skipped a CAPTCHA job earlier in this run.
   await expect(page.getByTestId('system-failures')).toContainText('The site showed a CAPTCHA (CAPTCHA_DETECTED, browser)');
 });

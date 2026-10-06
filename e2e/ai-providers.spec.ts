@@ -18,6 +18,7 @@ test('settings list every provider with its key state, limit and usage, and test
   await page.reload();
   await expect(page.getByTestId('provider-openai').getByLabel(/Daily budget/)).toHaveValue('4');
   // A provider without a key explains itself when tested, in plain words.
+  test.skip(!(await page.getByTestId('provider-anthropic').textContent())?.includes('No key'), 'ANTHROPIC_API_KEY is set on this machine');
   await page.getByTestId('test-anthropic').click();
   await expect(page.getByTestId('provider-anthropic').getByRole('status')).not.toContainText(/paste/i);
   await expect(page.getByTestId('provider-anthropic').getByRole('status')).toContainText('Add ANTHROPIC_API_KEY to your .env file.', { timeout: 25_000 });

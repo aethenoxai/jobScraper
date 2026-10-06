@@ -63,6 +63,7 @@ test('a second profile can be created and deleted', async ({ page }) => {
 test('AI settings explain a missing key without leaking keys', async ({ page }) => {
   await page.goto('/settings/ai');
   const openai = page.getByTestId('provider-openai');
+  test.skip(!(await openai.textContent())?.includes('No key'), 'OPENAI_API_KEY is set on this machine');
   await expect(openai).toContainText('OPENAI_API_KEY');
   await expect(page.locator('input[type=password]')).toHaveCount(0);
   // "Test connection" says where the key goes (.env), never asks to paste it.
