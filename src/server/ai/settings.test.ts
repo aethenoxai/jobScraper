@@ -70,19 +70,31 @@ describe('migrateAiSettings', () => {
     expect(migrateAiSettings({ invalid: 'object' }, {})).toEqual(DEFAULT_AI_SETTINGS);
   });
 
-  // Finding 3: unknown task id or provider id is rejected
-  it('rejects unknown task ids or provider ids in new-shape rows', () => {
+  // Finding 3 (Round 2): corrupt new-shape rows degrade to default, never throw
+  it('degrades corrupt new-shape rows to default instead of throwing', () => {
+    // (a) unknown task id
     const unknownTask = {
       providers: {},
       tasks: { 'cv-tailer': { provider: 'none', model: null } },
     };
-    expect(() => migrateAiSettings(unknownTask, {})).toThrow();
+    expect(migrateAiSettings(unknownTask, {})).toEqual(DEFAULT_AI_SETTINGS);
 
+    // (b) unknown provider id
     const unknownProvider = {
       providers: { opnai: { baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 } },
       tasks: { 'cv-extract': { provider: 'opnai', model: 'gpt-5' } },
     };
-    expect(() => migrateAiSettings(unknownProvider, {})).toThrow();
+    expect(migrateAiSettings(unknownProvider, {})).toEqual(DEFAULT_AI_SETTINGS);
+
+    // (c) tasks property is null (wrong type)
+    expect(migrateAiSettings({ tasks: null }, {})).toEqual(DEFAULT_AI_SETTINGS);
+
+    // (d) task route has wrong inner shape (string instead of object)
+    const wrongShape = {
+      providers: {},
+      tasks: { 'cv-extract': 'haiku' },
+    };
+    expect(migrateAiSettings(wrongShape, {})).toEqual(DEFAULT_AI_SETTINGS);
   });
 
   // Finding 1 continued: Gemini seed adds providers.google with defaults

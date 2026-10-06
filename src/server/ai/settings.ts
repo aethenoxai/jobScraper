@@ -107,23 +107,26 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
 };
 
 /**
- * Reads either shape: the new one as-is, the pre-routing one converted. Never writes.
- * Fills gaps in partial new-shape rows with offline routes; rejects invalid keys.
+ * Reads either shape: the new one as-is, the pre-routing one converted. Never throws.
+ * Fills gaps in partial new-shape rows with offline routes; corrupt rows degrade to default.
  */
 export function migrateAiSettings(raw: unknown, env: Record<string, string | undefined>): AiSettings {
   // Check if raw looks like new shape (has tasks or providers property).
   const looksLikeNewShape = typeof raw === 'object' && raw !== null && ('tasks' in raw || 'providers' in raw);
   if (looksLikeNewShape) {
-    // Try to parse as new shape; validation errors mean bad keys or values (throw them).
-    const asNew = AiSettingsSchema.parse(raw);
-    // Fill missing tasks with offline routes.
-    const filledTasks: Record<string, AiRoute> = { ...asNew.tasks };
-    for (const t of AI_TASKS) {
-      if (!(t in filledTasks)) {
-        filledTasks[t] = OFFLINE;
+    // Try to parse as new shape; on failure, fall through to old shape.
+    const asNew = AiSettingsSchema.safeParse(raw);
+    if (asNew.success) {
+      // Fill missing tasks with offline routes.
+      const filledTasks: Record<string, AiRoute> = { ...asNew.data.tasks };
+      for (const t of AI_TASKS) {
+        if (!(t in filledTasks)) {
+          filledTasks[t] = OFFLINE;
+        }
       }
+      return AiSettingsSchema.parse({ providers: asNew.data.providers, tasks: filledTasks });
     }
-    return AiSettingsSchema.parse({ providers: asNew.providers, tasks: filledTasks });
+    // New shape validation failed; fall through to try old shape.
   }
   // Try old shape (e.g., { provider: 'claude-code', fastModel: '...', ... }).
   const old = OldAiSettingsSchema.safeParse(raw);
