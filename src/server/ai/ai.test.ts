@@ -7,7 +7,7 @@ import { aiUsage } from '../db/schema';
 import { createLogger } from '../logging';
 import { createSettings } from '../settings';
 import { AiBudgetExceededError, AiNotConfiguredError, createAi, defaultModelFactory, estimateCostUsd } from './index';
-import { AI_SETTINGS_KEY, DEFAULT_MODELS } from './settings';
+import { AI_SETTINGS_KEY, CV_EXTRACT_MODEL, DEFAULT_MODELS } from './settings';
 
 const log = createLogger({ level: 'silent' });
 let t: ReturnType<typeof createTempDb>;
@@ -164,6 +164,71 @@ describe('ai', () => {
   it('estimates zero cost for local models', () => {
     expect(estimateCostUsd('ollama', 'llama3.1', 1_000_000, 1_000_000)).toBe(0);
     expect(estimateCostUsd('openai', 'unknown-model', 1_000_000, 0)).toBeGreaterThan(0);
+  });
+
+  describe('CV reading pinned to Gemini 3 Flash', () => {
+    const PDF = { data: new Uint8Array([1, 2, 3]), mediaType: 'application/pdf' };
+    function pinned(env: Record<string, string>) {
+      const settings = createSettings(t.db);
+      settings.set(AI_SETTINGS_KEY, { provider: 'claude-code', fastModel: null, qualityModel: null, baseUrl: null, dailyBudgetUsd: 2, dailyCallLimit: 300 });
+      const seen: Array<{ provider: string; model: string }> = [];
+      const prompts: string[] = [];
+      const claudeCalls: string[] = [];
+      const ai = createAi({
+        db: t.db,
+        settings,
+        log,
+        env,
+        modelFactory: (provider, model) => {
+          seen.push({ provider, model });
+          return mockModel('{"name":"Asha"}', prompts);
+        },
+        claudeCodeBin: () => '/usr/local/bin/claude',
+        runClaudeCode: async (req) => {
+          claudeCalls.push(req.model);
+          return { object: req.schema.parse({ name: 'Asha' }), inputTokens: 100, outputTokens: 10 };
+        },
+      });
+      const readCv = () => ai.generateObject({ role: 'fast', task: 'cv-extract', pin: CV_EXTRACT_MODEL, schema: z.object({ name: z.string() }), system: 's', prompt: 'p', file: PDF });
+      return { ai, seen, prompts, claudeCalls, readCv };
+    }
+
+    it('reads the CV with Gemini 3 Flash whatever provider is chosen, and sends the document itself', async () => {
+      const s = pinned({ GEMINI_API_KEY: 'AIza-test-123456' });
+      expect(await s.readCv()).toEqual({ name: 'Asha' });
+      expect(s.seen).toEqual([{ provider: 'google', model: 'gemini-3-flash-preview' }]);
+      expect(s.claudeCalls).toEqual([]);
+      expect(s.prompts[0]).toContain('"type":"file"');
+      const row = t.db.select().from(aiUsage).all()[0]!;
+      expect([row.provider, row.model, row.ok]).toEqual(['google', 'gemini-3-flash-preview', true]);
+      // Gemini is paid per token, so the daily budget counts it (the plan providers cost 0).
+      expect(row.costUsd).toBeGreaterThan(0);
+    });
+
+    it('accepts the key under Google\u2019s other name', async () => {
+      const s = pinned({ GOOGLE_GENERATIVE_AI_API_KEY: 'AIza-test-123456' });
+      await s.readCv();
+      expect(s.seen).toEqual([{ provider: 'google', model: 'gemini-3-flash-preview' }]);
+    });
+
+    it('falls back to the chosen provider when there is no Gemini key', async () => {
+      const s = pinned({});
+      await s.readCv();
+      expect(s.seen).toEqual([]);
+      expect(s.claudeCalls).toEqual(['haiku']);
+    });
+
+    it('leaves every other task on the chosen provider', async () => {
+      const s = pinned({ GEMINI_API_KEY: 'AIza-test-123456' });
+      await s.ai.generateObject({ role: 'quality', task: 'match', schema: z.object({ name: z.string() }), system: 's', prompt: 'p' });
+      expect(s.claudeCalls).toEqual(['sonnet']);
+      expect(s.seen).toEqual([]);
+    });
+
+    it('prices Gemini by its own rates (\u201cgemini\u201d contains \u201cmini\u201d)', () => {
+      expect(estimateCostUsd('google', 'gemini-3-flash-preview', 1_000_000, 1_000_000)).toBeCloseTo(3.5);
+      expect(estimateCostUsd('google', 'gemini-2.5-pro', 1_000_000, 0)).toBeCloseTo(1.25);
+    });
   });
 
   describe('Claude through the user’s own Claude Code', () => {

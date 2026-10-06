@@ -14,6 +14,7 @@ import { CHATGPT_API_BASE, chatGptAccessToken, chatGptAccount } from './chatgpt-
 import { claudeCodeObject, findClaudeCode } from './claude-code';
 import {
   AI_SETTINGS_KEY,
+  CV_EXTRACT_MODEL,
   AiSettingsSchema,
   DEFAULT_AI_SETTINGS,
   DEFAULT_MODELS,
@@ -53,6 +54,8 @@ export interface GenerateObjectRequest<T> {
   prompt: string;
   /** The original document (e.g. the CV as PDF), for providers that read files; the others get the prompt only. */
   file?: { data: Uint8Array; mediaType: string };
+  /** Runs this task on one fixed model instead of the chosen provider's, when its key is set (see CV_EXTRACT_MODEL). */
+  pin?: typeof CV_EXTRACT_MODEL;
   timeoutMs?: number;
   /** Cancels the call (e.g. the worker task was aborted). */
   signal?: AbortSignal;
@@ -73,11 +76,13 @@ const PRICES: Array<[RegExp, number, number]> = [
   [/haiku/i, 1, 5],
   [/sonnet/i, 3, 15],
   [/opus/i, 15, 75],
+  // Gemini comes before /mini/i, which the word "gemini" itself matches.
+  [/gemini-3-flash/i, 0.5, 3],
+  [/gemini.*pro/i, 1.25, 10],
+  [/flash/i, 0.3, 2.5],
   [/gpt-5-nano|gpt-4\.1-nano/i, 0.05, 0.4],
   [/mini/i, 0.25, 2],
   [/gpt-5|gpt-4\.1|gpt-4o/i, 1.25, 10],
-  [/flash/i, 0.3, 2.5],
-  [/gemini.*pro/i, 1.25, 10],
 ];
 const FALLBACK_PRICE: [number, number] = [3, 15];
 /** Output tokens reserved against the budget while a call runs (a generous answer for our structured outputs). */
@@ -90,6 +95,9 @@ export function estimateCostUsd(provider: AiProvider, model: string, inputTokens
   return (inputTokens * inP + outputTokens * outP) / 1_000_000;
 }
 
+/** Google's key, under either of the names Google's own tools use. */
+export const googleApiKey = (env: Record<string, string | undefined>) => env.GEMINI_API_KEY || env.GOOGLE_GENERATIVE_AI_API_KEY;
+
 export const defaultModelFactory: ModelFactory = (provider, modelId, settings, env) => {
   switch (provider) {
     case 'openai':
@@ -97,7 +105,7 @@ export const defaultModelFactory: ModelFactory = (provider, modelId, settings, e
     case 'anthropic':
       return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })(modelId);
     case 'google':
-      return createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY })(modelId);
+      return createGoogle({ apiKey: googleApiKey(env) })(modelId);
     case 'ollama':
       return createOllama({ baseURL: settings.baseUrl ?? env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434/api' })(modelId);
     case 'openai-compatible':
@@ -166,7 +174,7 @@ export function createAi(deps: {
     const models = { fast: s.fastModel ?? defaults.fast, quality: s.qualityModel ?? defaults.quality };
     const keyEnvVar = KEY_ENV_VAR[s.provider] ?? null;
     // Local OpenAI-compatible servers often take no key: only its address is required.
-    const keyPresent = keyEnvVar && s.provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
+    const keyPresent = s.provider === 'google' ? !!googleApiKey(readEnv()) : keyEnvVar && s.provider !== 'openai-compatible' ? !!readEnv()[keyEnvVar] : true;
     let reason: string | null = null;
     if (s.provider === 'claude-code' && !claudeBin()) reason = 'Claude Code isn’t installed on this computer. Install it and sign in with `claude auth login`.';
     else if (s.provider === 'chatgpt' && !chatGptAccount(deps.settings)) reason = 'Sign in with ChatGPT first.';
@@ -183,11 +191,14 @@ export function createAi(deps: {
       const s = readSettings();
       const st = status();
       if (!st.configured || s.provider === 'none') throw new AiNotConfiguredError(st.reason ?? 'AI is not configured.');
-      const modelId = st.models[req.role]!;
+      // A pinned task (CV reading) runs on its own model when that key is set; everything else uses the chosen provider.
+      const pin = req.pin && googleApiKey(readEnv()) ? req.pin : null;
+      const provider = pin?.provider ?? s.provider;
+      const modelId = pin?.model ?? st.models[req.role]!;
       // Check the budget and reserve this call's likely cost in one transaction: calls running side by side see
       // each other's reservations, so together they can't overspend. The row is corrected when the call ends.
-      const reserved = estimateCostUsd(s.provider, modelId, Math.ceil(((req.system?.length ?? 0) + req.prompt.length) / 4), RESERVED_OUTPUT_TOKENS);
-      const subscription = SUBSCRIPTION_PROVIDERS.includes(s.provider);
+      const reserved = estimateCostUsd(provider, modelId, Math.ceil(((req.system?.length ?? 0) + req.prompt.length) / 4), RESERVED_OUTPUT_TOKENS);
+      const subscription = SUBSCRIPTION_PROVIDERS.includes(provider);
       const callLimit = subscription ? s.dailyCallLimit : null;
       let limitReached = false;
       const usageId = deps.db.transaction(
@@ -197,7 +208,7 @@ export function createAi(deps: {
             return null;
           }
           if (st.dailyBudgetUsd !== null && spentToday(tx) >= st.dailyBudgetUsd) return null;
-          return tx.insert(aiUsage).values({ task: req.task, role: req.role, provider: s.provider, model: modelId, inputTokens: 0, outputTokens: 0, costUsd: reserved, ok: false, createdAt: now() }).returning({ id: aiUsage.id }).get().id;
+          return tx.insert(aiUsage).values({ task: req.task, role: req.role, provider, model: modelId, inputTokens: 0, outputTokens: 0, costUsd: reserved, ok: false, createdAt: now() }).returning({ id: aiUsage.id }).get().id;
         },
         { behavior: 'immediate' },
       );
@@ -212,24 +223,24 @@ export function createAi(deps: {
       const record = (ok: boolean, input = 0, output = 0) =>
         deps.db
           .update(aiUsage)
-          .set({ inputTokens: input, outputTokens: output, costUsd: estimateCostUsd(s.provider, modelId, input, output), ok })
+          .set({ inputTokens: input, outputTokens: output, costUsd: estimateCostUsd(provider, modelId, input, output), ok })
           .where(eq(aiUsage.id, usageId))
           .run();
 
       const input =
-        req.file && READS_FILES.has(s.provider)
+        req.file && READS_FILES.has(provider)
           ? { messages: [{ role: 'user' as const, content: [{ type: 'text' as const, text: req.prompt }, { type: 'file' as const, data: req.file.data, mediaType: req.file.mediaType }] }] }
           : { prompt: req.prompt };
       const abortSignal = req.signal ? AbortSignal.any([req.signal, AbortSignal.timeout(req.timeoutMs ?? 120_000)]) : AbortSignal.timeout(req.timeoutMs ?? 120_000);
       try {
-        if (s.provider === 'claude-code') {
+        if (provider === 'claude-code') {
           const bin = claudeBin();
           if (!bin) throw new AiNotConfiguredError('Claude Code isn’t installed on this computer.');
           const r = await runClaude({ bin, model: modelId, system: req.system, prompt: req.prompt, schema: req.schema, signal: req.signal, timeoutMs: req.timeoutMs });
           record(true, r.inputTokens, r.outputTokens);
           return r.object;
         }
-        if (s.provider === 'chatgpt') {
+        if (provider === 'chatgpt') {
           // Plan usage takes streamed, unstored requests with the system text as instructions (no temperature or
           // output limit): developers.openai.com/siwc/token-sharing-open-source/preview-limitations.
           let streamError: unknown = null;
@@ -259,7 +270,7 @@ export function createAi(deps: {
           return output;
         }
         const result = await generateText({
-          model: factory(s.provider, modelId, s, readEnv()),
+          model: factory(provider, modelId, s, readEnv()),
           output: Output.object({ schema: req.schema }),
           system: req.system,
           ...input,
@@ -270,7 +281,7 @@ export function createAi(deps: {
       } catch (err) {
         record(false);
         // Log only the message: provider errors carry the request body (CV text) and headers.
-        deps.log.warn({ error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), task: req.task, provider: s.provider, model: modelId }, 'AI call failed');
+        deps.log.warn({ error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), task: req.task, provider, model: modelId }, 'AI call failed');
         throw err;
       }
     },

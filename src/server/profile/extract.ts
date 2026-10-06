@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Ai } from '../ai';
+import { CV_EXTRACT_MODEL, type Ai } from '../ai';
 import { scrubSecrets } from '../logging';
 import { heuristicExtract, toPartialDate } from './heuristic';
 import { assignIds, CAREER_LEVELS, computeYearsOfExperience, emptyProfile, ProfileDataSchema, SKILL_CATEGORIES, type ProfileData } from './model';
@@ -222,6 +222,7 @@ export async function extractProfile(text: string, ai: Ai | null, opts: { now?: 
     const out = await ai.generateObject({
       role: 'fast',
       task: 'cv-extract',
+      pin: CV_EXTRACT_MODEL,
       schema: AiExtractionSchema,
       system: EXTRACTION_SYSTEM_PROMPT,
       prompt: `CV text:\n"""\n${text.slice(0, 30_000)}\n"""`,

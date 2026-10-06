@@ -44,6 +44,13 @@ export const DEFAULT_MODELS: Record<Exclude<AiProvider, 'none'>, { fast: string 
   chatgpt: { fast: 'gpt-5-mini', quality: 'gpt-5' },
 };
 
+/**
+ * Reading a CV always runs on Gemini 3 Flash, whatever provider is chosen: best value for reading documents
+ * ($0.50/$3 per 1M) and it takes the PDF itself. Used only when a Gemini key is set; otherwise the chosen
+ * provider reads the CV text. Google's own tools name the key GEMINI_API_KEY, so both names are accepted.
+ */
+export const CV_EXTRACT_MODEL = { provider: 'google', model: 'gemini-3-flash-preview' } as const;
+
 /** Models offered in setup and settings (the user can also type another one). Empty: type the model's name. */
 export const MODEL_CHOICES: Record<Exclude<AiProvider, 'none'>, string[]> = {
   openai: ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'],

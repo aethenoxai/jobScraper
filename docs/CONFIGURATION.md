@@ -27,9 +27,11 @@ Setup asks for an AI model and tests it before you go on: it reads your CV and j
 | --- | --- |
 | `OPENAI_API_KEY` | OpenAI |
 | `ANTHROPIC_API_KEY` | Anthropic |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Google (Gemini) |
+| `GEMINI_API_KEY` | Google (Gemini). Also read as `GOOGLE_GENERATIVE_AI_API_KEY` |
 | `OPENAI_COMPATIBLE_API_KEY` | Any OpenAI-compatible server (set its base URL in the app; the key is optional, many local servers take none) |
 | `OLLAMA_BASE_URL` | Ollama, if not at `http://127.0.0.1:11434/api` (no key needed) |
+
+**Reading your CV always uses Gemini 3 Flash** (`gemini-3-flash-preview`) when a `GEMINI_API_KEY` is set, whatever provider you chose: it is the best value for reading documents and it reads your PDF itself instead of text pulled out of it. Costs about a cent per CV and counts against the daily budget. Without that key, the provider you chose reads the CV text. Everything else (matching, tailoring, letters) always uses your chosen provider.
 
 Two choices need no key:
 
