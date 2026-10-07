@@ -14,21 +14,20 @@ test('a fresh install shows only the setup wizard, one step at a time, until the
   await expect(step).toHaveText('Step 1 of 5');
 
   // The plan sign-ins: ChatGPT goes to OpenAI's page (not followed here); Claude Code says whether it is ready.
-  await page.getByLabel(/ChatGPT \(sign in with your plan\)/).check();
   await expect(page.getByTestId('chatgpt-panel').getByRole('link', { name: 'Sign in with ChatGPT' })).toHaveAttribute('href', '/api/oauth/chatgpt/start');
-  await expect(page.getByRole('button', { name: 'Test and continue' })).toBeDisabled();
   const start = await page.request.get('/api/oauth/chatgpt/start', { maxRedirects: 0 });
   expect(start.status()).toBe(302);
   expect(new URL(start.headers().location).searchParams.get('redirect_uri')).toBe('http://127.0.0.1:3100/callback');
   expect(start.headers().location).toMatch(/^https:\/\/auth\.openai\.com\/api\/accounts\/authorize\?/);
-  await page.getByLabel(/Claude \(through your Claude Code\)/).check();
   await expect(page.getByTestId('claude-code-panel')).toContainText(/Claude Code/);
 
   // 1. AI model: a key-less local server (the fixture), tested before going on.
-  await page.getByLabel(/OpenAI-compatible server/).check();
-  await page.getByLabel('Server address').fill('http://127.0.0.1:3199/v1');
-  await page.getByLabel('Model for CVs and cover letters').fill('fixture-model');
-  await page.getByLabel('Model for reading and matching jobs').fill('fixture-model');
+  await page.getByLabel('Provider for all tasks').selectOption('openai-compatible');
+  await page.getByLabel('Model name for all tasks').fill('fixture-model');
+  await page.getByRole('button', { name: 'Apply to all tasks' }).click();
+  await expect(page.getByTestId('task-cv-extract').getByLabel(/^Model name for/)).toHaveValue('fixture-model');
+  await page.getByText('Server address (Ollama or an OpenAI-compatible server)').click();
+  await page.getByLabel('OpenAI-compatible server', { exact: true }).fill('http://127.0.0.1:3199/v1');
   await page.getByRole('button', { name: 'Test and continue' }).click();
   await expect(step).toHaveText('Step 2 of 5');
 
@@ -89,7 +88,8 @@ test('a fresh install shows only the setup wizard, one step at a time, until the
   await page.getByRole('button', { name: 'Stop' }).click();
   await expect(page.getByTestId('scheduler-status')).toHaveText('Paused');
   await page.goto('/settings/ai');
-  await page.getByLabel('Provider').selectOption('none');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('AI settings saved.')).toBeVisible();
+  await page.getByLabel('Provider for all tasks').selectOption('none');
+  await page.getByRole('button', { name: 'Apply to all tasks' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByTestId('tasks-saved')).toHaveText('Task settings saved.');
 });
